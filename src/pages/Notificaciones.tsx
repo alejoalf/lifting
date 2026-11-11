@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
-import { actualizar, formatFechaHora, marcarNotificacionesLeidas, useColeccion } from "../lib/registros";
+import { actualizar, esPara, formatFechaHora, marcarNotificacionesLeidas, useColeccion } from "../lib/registros";
 
 const pestañas = [
   { clave: "todas", label: "Todas las notificaciones" },
@@ -11,7 +12,7 @@ const pestañas = [
 export default function Notificaciones() {
   const { operador } = useAuth();
   const [pestaña, setPestaña] = useState<(typeof pestañas)[number]["clave"]>("todas");
-  const propias = useColeccion("notificaciones").filter((n) => n.para === operador?.id);
+  const propias = useColeccion("notificaciones").filter((n) => esPara(n, operador));
   const visibles = propias.filter((n) => pestaña === "todas" || (pestaña === "leidas") === n.leida);
 
   return (
@@ -24,19 +25,19 @@ export default function Notificaciones() {
             </button>
           ))}
         </div>
-        <button type="button" className="secondary" disabled={!propias.some((n) => !n.leida)} onClick={() => operador && marcarNotificacionesLeidas(operador.id)}>
+        <button type="button" className="secondary" disabled={!propias.some((n) => !n.leida)} onClick={() => operador && marcarNotificacionesLeidas(operador)}>
           Marcar todo como leído
         </button>
       </div>
 
       <section className="panel">
-        <h2 className="panel-header">Hacé clic en una notificación para marcarla como leída.</h2>
+        <h2 className="panel-header">Hacé clic en una notificación para abrirla.</h2>
         <div className="panel-body">
           {visibles.length === 0 && <p className="vacio">No hay notificaciones para mostrar.</p>}
           {visibles.map((n) => (
-            <button
+            <Link
               key={n.id}
-              type="button"
+              to={n.enlace || "/notificaciones"}
               className={`notificacion${n.leida ? "" : " no-leida"}`}
               onClick={() => actualizar("notificaciones", n.id, { leida: true })}
             >
@@ -46,7 +47,7 @@ export default function Notificaciones() {
               </span>
               <span className="notificacion-mensaje">{n.mensaje}</span>
               <span className="notificacion-fecha">{formatFechaHora(n.fecha)}</span>
-            </button>
+            </Link>
           ))}
         </div>
       </section>

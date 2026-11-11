@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { actualizar, agregar, contiene, formatFecha, hoy, useColeccion, type Gerenciamiento } from "../../lib/registros";
+import { actualizar, notificar, contiene, formatFecha, hoy, useColeccion, type Gerenciamiento } from "../../lib/registros";
 
 const filtrosVacios = { id: "", conductor: "", destino: "", autorizacion: "", estado: "", desde: "", hasta: "" };
 
@@ -34,13 +34,7 @@ export default function HistoricoGerenciamientos() {
   function autorizar(g: Gerenciamiento) {
     if (!operador) return;
     actualizar("gerenciamientos", g.id, { autorizacion: "autorizado", responsable: operador.nombre_completo });
-    agregar("notificaciones", {
-      para: g.creadoPor,
-      titulo: `Gerenciamiento #${g.id} aprobado`,
-      mensaje: `${operador.nombre_completo} ha aprobado el gerenciamiento #${g.id}`,
-      fecha: new Date().toISOString(),
-      leida: false,
-    });
+    notificar(g.creadoPor, `Gerenciamiento #${g.id} aprobado`, `${operador.nombre_completo} ha aprobado el gerenciamiento #${g.id}`, "/gerenciamientos");
   }
 
   return (

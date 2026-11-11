@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 // Almacenamiento PROVISORIO en el navegador (localStorage) para las pantallas de
-// gerenciamientos, checklist, observaciones y notificaciones.
+// partes diarios, gerenciamientos, checklist, observaciones y notificaciones.
 // Cuando existan las tablas en Supabase, reemplazar leer/guardar por consultas
 // reales: las pantallas solo usan useColeccion, agregar y actualizar.
 
@@ -29,6 +29,50 @@ export interface Gerenciamiento {
   autorizacion: "pendiente" | "autorizado";
   responsable: string;
   estado: "abierto" | "cerrado";
+}
+
+export type EstadoParte = "pendiente" | "autorizado" | "rechazado" | "en_curso" | "cerrado";
+
+export interface Parte {
+  id: number;
+  creadoPor: string;
+  operador: string;
+  creadoEn: string;
+  fecha: string;
+  vehiculo: string;
+  tarea: string;
+  cliente: string;
+  locacion: string;
+  kmInicial: number;
+  observaciones: string;
+  estado: EstadoParte;
+  resueltoPor: string; // quién autorizó o rechazó
+  resueltoEn: string;
+  motivoRechazo: string;
+  salidaEn: string;
+  cerradoEn: string;
+  kmFinal: number | null;
+  trabajoRealizado: string;
+}
+
+export const ESTADOS_PARTE: Record<EstadoParte, string> = {
+  pendiente: "Pendiente de autorización",
+  autorizado: "Autorizado",
+  rechazado: "Rechazado",
+  en_curso: "En curso",
+  cerrado: "Cerrado",
+};
+
+export interface Notificacion {
+  id: number;
+  /** id del usuario destinatario, o "rol:supervisor" para todos los supervisores y administradores. */
+  para: string;
+  titulo: string;
+  mensaje: string;
+  /** Ruta de la app a la que lleva la notificación. */
+  enlace: string;
+  fecha: string;
+  leida: boolean;
 }
 
 export interface Observacion {
@@ -59,19 +103,11 @@ export interface Checklist {
   usuario: string;
 }
 
-export interface Notificacion {
-  id: number;
-  para: string;
-  titulo: string;
-  mensaje: string;
-  fecha: string;
-  leida: boolean;
-}
-
 interface Colecciones {
   gerenciamientos: Gerenciamiento;
   observaciones: Observacion;
   checklists: Checklist;
+  partes: Parte;
   notificaciones: Notificacion;
 }
 
@@ -126,8 +162,20 @@ export function actualizar<K extends Clave>(clave: K, id: number, cambios: Parti
   guardar(clave, leer(clave).map((f) => (f.id === id ? { ...f, ...cambios } : f)));
 }
 
-export function marcarNotificacionesLeidas(para: string) {
-  guardar("notificaciones", leer("notificaciones").map((n) => (n.para === para ? { ...n, leida: true } : n)));
+export const PARA_SUPERVISORES = "rol:supervisor";
+
+export function esPara(n: Notificacion, usuario: { id: string; rol: string } | null) {
+  if (!usuario) return false;
+  return n.para === usuario.id || (n.para === PARA_SUPERVISORES && (usuario.rol === "supervisor" || usuario.rol === "admin"));
+}
+
+// Cada notificación equivale a un aviso que más adelante también saldrá por mail.
+export function notificar(para: string, titulo: string, mensaje: string, enlace: string) {
+  agregar("notificaciones", { para, titulo, mensaje, enlace, fecha: new Date().toISOString(), leida: false });
+}
+
+export function marcarNotificacionesLeidas(usuario: { id: string; rol: string }) {
+  guardar("notificaciones", leer("notificaciones").map((n) => (esPara(n, usuario) ? { ...n, leida: true } : n)));
 }
 
 /** Fecha local de hoy en formato AAAA-MM-DD (el que usa <input type="date">). */

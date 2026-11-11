@@ -15,7 +15,7 @@ const navigation: { caption: string; items: NavigationItem[] }[] = [
   {
     caption: "OPERACIONES",
     items: [
-      { label: "Parte de hoy", to: "/chofer", icon: "P", roles: ["chofer", "hidrogrulero"] },
+      { label: "Mis partes", to: "/chofer", icon: "P", roles: ["chofer", "hidrogrulero"] },
       { label: "Nuevo parte", to: "/chofer/nuevo", icon: "+", roles: ["chofer", "hidrogrulero"] },
       { label: "Partes", to: "/supervisor", icon: "P", roles: ["supervisor", "admin"] },
       { label: "Flota", to: "/admin", icon: "F", roles: ["admin"] },
@@ -39,7 +39,7 @@ const navigation: { caption: string; items: NavigationItem[] }[] = [
 ];
 
 const pageTitles: Record<string, string> = {
-  "/chofer": "Parte de hoy",
+  "/chofer": "Mis partes",
   "/chofer/nuevo": "Nuevo parte",
   "/supervisor": "Partes",
   "/admin": "Flota",
@@ -51,7 +51,8 @@ const pageTitles: Record<string, string> = {
   "/notificaciones": "Historial de notificaciones",
 };
 
-const rutasConDatosLocales = /^\/(gerenciamientos|checklist|observaciones|notificaciones)/;
+// Todo menos el tablero de flota guarda sus datos en el navegador por ahora.
+const rutasConDatosLocales = /^\/(chofer|supervisor|partes|gerenciamientos|checklist|observaciones|notificaciones)/;
 
 function formatRole(rol: Rol) {
   return rol === "admin" ? "Administrador" : rol === "hidrogrulero" ? "Hidrogrúa" : rol[0].toUpperCase() + rol.slice(1);
@@ -114,7 +115,8 @@ export function AppShell() {
     }
   }
 
-  const title = pageTitles[location.pathname] ?? "Lifting Patagonia";
+  const title = pageTitles[location.pathname]
+    ?? (location.pathname.startsWith("/partes/") ? "Parte diario" : "Lifting Patagonia");
   const groups = navigation
     .map((group) => ({
       ...group,

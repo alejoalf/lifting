@@ -8,6 +8,7 @@ import SupervisorPanel from "./pages/supervisor/Panel";
 import AdminPanel from "./pages/admin/Panel";
 import NuevoGerenciamiento from "./pages/gerenciamientos/Nuevo";
 import HistoricoGerenciamientos from "./pages/gerenciamientos/Historico";
+import DetalleParte from "./pages/partes/Detalle";
 import HistoricoChecklist from "./pages/checklist/Historico";
 import NuevaObservacion from "./pages/observaciones/Nueva";
 import HistoricoObservaciones from "./pages/observaciones/Historico";
@@ -25,6 +26,7 @@ export default function App() {
         {/* Disponibles para todos los roles autenticados (el guard del layout ya los cubre). */}
         <Route path="/gerenciamientos" element={<HistoricoGerenciamientos />} />
         <Route path="/gerenciamientos/nuevo" element={<NuevoGerenciamiento />} />
+        <Route path="/partes/:id" element={<DetalleParte />} />
         <Route path="/checklist" element={<HistoricoChecklist />} />
         <Route path="/observaciones" element={<HistoricoObservaciones />} />
         <Route path="/observaciones/nueva" element={<NuevaObservacion />} />

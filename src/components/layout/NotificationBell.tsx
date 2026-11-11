@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { actualizar, useColeccion } from "../../lib/registros";
+import { actualizar, esPara, useColeccion } from "../../lib/registros";
 
 export function NotificationBell() {
   const { operador } = useAuth();
   const location = useLocation();
   const [abierto, setAbierto] = useState(false);
   const contenedor = useRef<HTMLDivElement>(null);
-  const propias = useColeccion("notificaciones").filter((n) => n.para === operador?.id);
+  const propias = useColeccion("notificaciones").filter((n) => esPara(n, operador));
   const sinLeer = propias.filter((n) => !n.leida).length;
 
   useEffect(() => setAbierto(false), [location.pathname]);
@@ -51,7 +51,7 @@ export function NotificationBell() {
           {propias.slice(0, 4).map((n) => (
             <Link
               key={n.id}
-              to="/notificaciones"
+              to={n.enlace || "/notificaciones"}
               className={`bell-item${n.leida ? "" : " no-leida"}`}
               onClick={() => actualizar("notificaciones", n.id, { leida: true })}
             >
