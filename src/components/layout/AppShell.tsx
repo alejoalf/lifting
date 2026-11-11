@@ -1,27 +1,189 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
+import type { Rol } from "../../lib/supabase";
 
-interface AppShellProps {
-  titulo: string;
-  children: ReactNode;
+interface NavigationItem {
+  label: string;
+  to: string;
+  icon: string;
+  roles: Rol[];
 }
 
-export function AppShell({ titulo, children }: AppShellProps) {
+const navigation: NavigationItem[] = [
+  { label: "Parte de hoy", to: "/chofer", icon: "P", roles: ["chofer", "hidrogrulero"] },
+  { label: "Nuevo parte", to: "/chofer/nuevo", icon: "+", roles: ["chofer", "hidrogrulero"] },
+  { label: "Partes", to: "/supervisor", icon: "P", roles: ["supervisor", "admin"] },
+  { label: "Flota", to: "/admin", icon: "F", roles: ["admin"] },
+];
+
+const pageTitles: Record<string, string> = {
+  "/chofer": "Parte de hoy",
+  "/chofer/nuevo": "Nuevo parte",
+  "/supervisor": "Partes",
+  "/admin": "Flota",
+};
+
+function formatRole(rol: Rol) {
+  return rol === "admin" ? "Administrador" : rol === "hidrogrulero" ? "Hidrogrúa" : rol[0].toUpperCase() + rol.slice(1);
+}
+
+export function AppShell() {
   const { operador, signOut } = useAuth();
+  const location = useLocation();
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [signOutError, setSignOutError] = useState("");
+  const mobileMenuButton = useRef<HTMLButtonElement>(null);
+  const sidebar = useRef<HTMLElement>(null);
+  const pageHeading = useRef<HTMLHeadingElement>(null);
+  const focusPageAfterNavigation = useRef(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+    if (focusPageAfterNavigation.current) {
+      focusPageAfterNavigation.current = false;
+      pageHeading.current?.focus();
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const focusableElements = sidebar.current?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    focusableElements?.[0]?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+        mobileMenuButton.current?.focus();
+      } else if (event.key === "Tab" && focusableElements?.length) {
+        const first = focusableElements[0];
+        const last = focusableElements[focusableElements.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileOpen]);
+
+  async function salir() {
+    setSignOutError("");
+    try {
+      await signOut();
+    } catch {
+      setSignOutError("No se pudo cerrar la sesión. Intentá de nuevo.");
+    }
+  }
+
+  const title = pageTitles[location.pathname] ?? "Lifting Patagonia";
+  const items = navigation.filter((item) => operador && item.roles.includes(operador.rol));
 
   return (
-    <>
-      <header className="top">
-        <div>
-          <strong>Lifting Patagonia</strong>
-          <span className="rol">{operador?.nombre_completo} · {operador?.rol}</span>
+    <div className={`app-shell${collapsed ? " sidebar-collapsed" : ""}`}>
+      {mobileOpen && (
+        <button
+          className="sidebar-backdrop"
+          type="button"
+          aria-label="Cerrar menú"
+          onClick={() => {
+            setMobileOpen(false);
+            mobileMenuButton.current?.focus();
+          }}
+        />
+      )}
+
+      <aside ref={sidebar} className={`sidebar${mobileOpen ? " is-open" : ""}`} id="primary-navigation">
+        <NavLink
+          className="brand"
+          to={operador ? (operador.rol === "admin" ? "/admin" : operador.rol === "supervisor" ? "/supervisor" : "/chofer") : "/login"}
+          aria-label="Lifting Patagonia, inicio"
+          onClick={() => { focusPageAfterNavigation.current = mobileOpen; }}
+        >
+          <span className="brand-mark" aria-hidden="true">LP</span>
+          <span className="brand-name">Lifting Patagonia</span>
+        </NavLink>
+
+        <p className="sidebar-caption">OPERACIONES</p>
+        <nav className="nav-list" aria-label="Navegación principal">
+          {items.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end
+              className={({ isActive }) => `nav-item${isActive ? " is-active" : ""}`}
+              aria-label={item.label}
+              title={collapsed ? item.label : undefined}
+              onClick={() => { focusPageAfterNavigation.current = mobileOpen; }}
+            >
+              <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+              <span className="nav-label">{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <span className="sidebar-status" aria-hidden="true" />
+          <span className="sidebar-caption">PORTAL OPERATIVO</span>
         </div>
-        <button className="link" onClick={signOut}>Salir</button>
-      </header>
-      <main>
-        <h1>{titulo}</h1>
-        {children}
-      </main>
-    </>
+      </aside>
+
+      <div className="workspace">
+        <header className="workspace-header">
+          <button
+            ref={mobileMenuButton}
+            className="icon-button mobile-menu-button"
+            type="button"
+            aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}
+            aria-expanded={mobileOpen}
+            aria-controls="primary-navigation"
+            onClick={() => setMobileOpen((open) => !open)}
+          >
+            <span aria-hidden="true">{mobileOpen ? "×" : "☰"}</span>
+          </button>
+          <button
+            className="icon-button collapse-button"
+            type="button"
+            aria-label={collapsed ? "Expandir menú" : "Contraer menú"}
+            aria-expanded={!collapsed}
+            onClick={() => setCollapsed((value) => !value)}
+          >
+            <span aria-hidden="true">{collapsed ? "»" : "«"}</span>
+          </button>
+
+          <div className="header-section">
+            <span className="header-eyebrow">LIFTING PATAGONIA</span>
+            <span className="header-title">{title}</span>
+          </div>
+
+          <div className="user-menu">
+            <div className="user-details">
+              <span className="user-name">{operador?.nombre_completo}</span>
+              {operador && <span className="user-role">{formatRole(operador.rol)}</span>}
+            </div>
+            <button className="sign-out-button" type="button" onClick={salir}>Salir</button>
+          </div>
+        </header>
+
+        {signOutError && <p className="sign-out-error" role="alert">{signOutError}</p>}
+
+        <main className="page-content">
+          <div className="page-heading">
+            <p className="page-kicker">OPERACIONES</p>
+            <h1 ref={pageHeading} tabIndex={-1}>{title}</h1>
+          </div>
+          <Outlet />
+        </main>
+      </div>
+    </div>
   );
 }

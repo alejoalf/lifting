@@ -89,7 +89,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   return (
-    <Ctx.Provider value={{ session, operador, loading, perfilError, signOut: async () => { await getSupabase().auth.signOut(); } }}>
+    <Ctx.Provider value={{
+      session,
+      operador,
+      loading,
+      perfilError,
+      signOut: async () => {
+        const { error } = await getSupabase().auth.signOut();
+        if (error) throw error;
+      },
+    }}>
       {children}
     </Ctx.Provider>
   );
