@@ -1,0 +1,38 @@
+:root {
+  --acero: #1f2a30; --ripio: #e9e7e1; --papel: #f6f5f1; --tinta: #1a2024;
+  --hi-vis: #f2c200; --ok: #2f7d4f; --aviso: #a86f00; --alto: #b3261e;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --papel: #161d21; --ripio: #26323a; --tinta: #eceae4; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--papel); color: var(--tinta); font: 400 17px/1.5 "Barlow", system-ui, sans-serif; }
+h1, h2 { font-family: "Barlow Condensed", "Barlow", sans-serif; font-weight: 700; line-height: 1.1; margin: 0 0 .75rem; }
+h1 { font-size: 2rem; } h2 { font-size: 1.25rem; }
+.top { display: flex; justify-content: space-between; align-items: center; padding: .75rem 1rem; background: var(--acero); color: #fff; border-bottom: 4px solid var(--hi-vis); }
+.top .rol { display: block; font-size: .8rem; opacity: .75; }
+main { max-width: 36rem; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+label { display: block; font-weight: 500; margin-bottom: 1rem; }
+input, select { display: block; width: 100%; min-height: 3rem; margin-top: .25rem; padding: .5rem .75rem; font: inherit; color: inherit; background: var(--ripio); border: 2px solid transparent; border-radius: 6px; }
+input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid var(--hi-vis); outline-offset: 2px; }
+button { font: 600 1.05rem "Barlow", sans-serif; cursor: pointer; }
+.primary { display: block; width: 100%; min-height: 3.25rem; padding: .75rem 1rem; font: 600 1.05rem "Barlow", sans-serif; text-align: center; text-decoration: none; color: #1a2024; background: var(--hi-vis); border: 0; border-radius: 6px; }
+.primary:disabled { opacity: .45; cursor: not-allowed; }
+.link { background: none; border: 0; color: #fff; text-decoration: underline; }
+.card { background: var(--ripio); border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+.row { display: flex; gap: .5rem; flex-wrap: wrap; }
+.chip { display: inline-block; padding: .2rem .7rem; border-radius: 999px; font-weight: 600; font-size: .9rem; color: #fff; }
+.chip.vigente { background: var(--ok); } .chip.por-vencer { background: var(--aviso); } .chip.vencido { background: var(--alto); }
+.vacio, .estado { color: color-mix(in srgb, var(--tinta) 70%, transparent); }
+.estado { padding: 2rem 1rem; text-align: center; }
+.error { color: var(--alto); font-weight: 500; }
+.login { padding-top: 4rem; }
+.configuracion { padding-top: 4rem; }
+.configuracion .card { padding: 1.5rem; }
+.configuracion h2 { margin-top: 1.5rem; }
+.configuracion ol { padding-left: 1.5rem; }
+.configuracion li { margin-bottom: .5rem; }
+.configuracion code { padding: .1rem .3rem; background: var(--papel); border-radius: 3px; }
+.ayuda { color: color-mix(in srgb, var(--tinta) 70%, transparent); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

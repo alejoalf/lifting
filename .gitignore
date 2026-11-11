@@ -1,0 +1,11 @@
+# Environment files can contain credentials. Keep only the safe template.
+.env
+.env.*
+!.env.example
+
+# Generated and local-only files
+node_modules/
+dist/
+coverage/
+.vite/
+*.log
