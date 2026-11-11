@@ -1,8 +1,8 @@
-import { Shell } from "../../components";
+import { AppShell } from "../../components/layout/AppShell";
 export default function SupervisorPanel() {
   return (
-    <Shell titulo="Partes">
+    <AppShell titulo="Partes">
       <p className="vacio">Acá van los partes pendientes de firma y las excepciones por autorizar.</p>
-    </Shell>
+    </AppShell>
   );
 }
