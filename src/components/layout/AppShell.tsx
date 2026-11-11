@@ -2,19 +2,40 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import type { Rol } from "../../lib/supabase";
+import { NotificationBell } from "./NotificationBell";
 
 interface NavigationItem {
   label: string;
   to: string;
   icon: string;
-  roles: Rol[];
+  roles?: Rol[]; // sin roles = visible para todos
 }
 
-const navigation: NavigationItem[] = [
-  { label: "Parte de hoy", to: "/chofer", icon: "P", roles: ["chofer", "hidrogrulero"] },
-  { label: "Nuevo parte", to: "/chofer/nuevo", icon: "+", roles: ["chofer", "hidrogrulero"] },
-  { label: "Partes", to: "/supervisor", icon: "P", roles: ["supervisor", "admin"] },
-  { label: "Flota", to: "/admin", icon: "F", roles: ["admin"] },
+const navigation: { caption: string; items: NavigationItem[] }[] = [
+  {
+    caption: "OPERACIONES",
+    items: [
+      { label: "Parte de hoy", to: "/chofer", icon: "P", roles: ["chofer", "hidrogrulero"] },
+      { label: "Nuevo parte", to: "/chofer/nuevo", icon: "+", roles: ["chofer", "hidrogrulero"] },
+      { label: "Partes", to: "/supervisor", icon: "P", roles: ["supervisor", "admin"] },
+      { label: "Flota", to: "/admin", icon: "F", roles: ["admin"] },
+    ],
+  },
+  {
+    caption: "GESTIÓN VEHICULAR",
+    items: [
+      { label: "Crear gerenciamiento", to: "/gerenciamientos/nuevo", icon: "+" },
+      { label: "Gerenciamientos", to: "/gerenciamientos", icon: "G" },
+      { label: "Checklist vehicular", to: "/checklist", icon: "C" },
+    ],
+  },
+  {
+    caption: "TARJETA DE OBSERVACIÓN",
+    items: [
+      { label: "Nueva tarjeta", to: "/observaciones/nueva", icon: "+" },
+      { label: "Histórico de tarjetas", to: "/observaciones", icon: "O" },
+    ],
+  },
 ];
 
 const pageTitles: Record<string, string> = {
@@ -22,7 +43,15 @@ const pageTitles: Record<string, string> = {
   "/chofer/nuevo": "Nuevo parte",
   "/supervisor": "Partes",
   "/admin": "Flota",
+  "/gerenciamientos": "Gerenciamientos de viaje",
+  "/gerenciamientos/nuevo": "Nuevo gerenciamiento",
+  "/checklist": "Constancia checklist vehicular",
+  "/observaciones": "Tarjetas de observaciones",
+  "/observaciones/nueva": "Tarjeta de observación",
+  "/notificaciones": "Historial de notificaciones",
 };
+
+const rutasConDatosLocales = /^\/(gerenciamientos|checklist|observaciones|notificaciones)/;
 
 function formatRole(rol: Rol) {
   return rol === "admin" ? "Administrador" : rol === "hidrogrulero" ? "Hidrogrúa" : rol[0].toUpperCase() + rol.slice(1);
@@ -86,7 +115,12 @@ export function AppShell() {
   }
 
   const title = pageTitles[location.pathname] ?? "Lifting Patagonia";
-  const items = navigation.filter((item) => operador && item.roles.includes(operador.rol));
+  const groups = navigation
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => operador && (!item.roles || item.roles.includes(operador.rol))),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <div className={`app-shell${collapsed ? " sidebar-collapsed" : ""}`}>
@@ -113,21 +147,27 @@ export function AppShell() {
           <span className="brand-name">Lifting Patagonia</span>
         </NavLink>
 
-        <p className="sidebar-caption">OPERACIONES</p>
-        <nav className="nav-list" aria-label="Navegación principal">
-          {items.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end
-              className={({ isActive }) => `nav-item${isActive ? " is-active" : ""}`}
-              aria-label={item.label}
-              title={collapsed ? item.label : undefined}
-              onClick={() => { focusPageAfterNavigation.current = mobileOpen; }}
-            >
-              <span className="nav-icon" aria-hidden="true">{item.icon}</span>
-              <span className="nav-label">{item.label}</span>
-            </NavLink>
+        <nav className="sidebar-nav" aria-label="Navegación principal">
+          {groups.map((group) => (
+            <div key={group.caption}>
+              <p className="sidebar-caption">{group.caption}</p>
+              <div className="nav-list">
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end
+                    className={({ isActive }) => `nav-item${isActive ? " is-active" : ""}`}
+                    aria-label={item.label}
+                    title={collapsed ? item.label : undefined}
+                    onClick={() => { focusPageAfterNavigation.current = mobileOpen; }}
+                  >
+                    <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+                    <span className="nav-label">{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
@@ -166,6 +206,7 @@ export function AppShell() {
           </div>
 
           <div className="user-menu">
+            <NotificationBell />
             <div className="user-details">
               <span className="user-name">{operador?.nombre_completo}</span>
               {operador && <span className="user-role">{formatRole(operador.rol)}</span>}
@@ -181,6 +222,11 @@ export function AppShell() {
             <p className="page-kicker">OPERACIONES</p>
             <h1 ref={pageHeading} tabIndex={-1}>{title}</h1>
           </div>
+          {rutasConDatosLocales.test(location.pathname) && (
+            <p className="aviso-local" role="note">
+              Versión de prueba: lo que cargues en esta pantalla se guarda solo en este navegador, todavía no en la base de datos.
+            </p>
+          )}
           <Outlet />
         </main>
       </div>

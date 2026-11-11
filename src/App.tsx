@@ -6,6 +6,12 @@ import ChoferInicio from "./pages/chofer/Inicio";
 import NuevoParte from "./pages/chofer/NuevoParte";
 import SupervisorPanel from "./pages/supervisor/Panel";
 import AdminPanel from "./pages/admin/Panel";
+import NuevoGerenciamiento from "./pages/gerenciamientos/Nuevo";
+import HistoricoGerenciamientos from "./pages/gerenciamientos/Historico";
+import HistoricoChecklist from "./pages/checklist/Historico";
+import NuevaObservacion from "./pages/observaciones/Nueva";
+import HistoricoObservaciones from "./pages/observaciones/Historico";
+import Notificaciones from "./pages/Notificaciones";
 
 export default function App() {
   return (
@@ -16,6 +22,13 @@ export default function App() {
         <Route path="/chofer/nuevo" element={<RequireRole roles={["chofer", "hidrogrulero"]}><NuevoParte /></RequireRole>} />
         <Route path="/supervisor" element={<RequireRole roles={["supervisor", "admin"]}><SupervisorPanel /></RequireRole>} />
         <Route path="/admin" element={<RequireRole roles={["admin"]}><AdminPanel /></RequireRole>} />
+        {/* Disponibles para todos los roles autenticados (el guard del layout ya los cubre). */}
+        <Route path="/gerenciamientos" element={<HistoricoGerenciamientos />} />
+        <Route path="/gerenciamientos/nuevo" element={<NuevoGerenciamiento />} />
+        <Route path="/checklist" element={<HistoricoChecklist />} />
+        <Route path="/observaciones" element={<HistoricoObservaciones />} />
+        <Route path="/observaciones/nueva" element={<NuevaObservacion />} />
+        <Route path="/notificaciones" element={<Notificaciones />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
