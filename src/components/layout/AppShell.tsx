@@ -109,7 +109,7 @@ export function AppShell() {
           aria-label="Lifting Patagonia, inicio"
           onClick={() => { focusPageAfterNavigation.current = mobileOpen; }}
         >
-          <span className="brand-mark" aria-hidden="true">LP</span>
+          <img className="brand-mark" src="/logo.png" alt="" width={828} height={682} />
           <span className="brand-name">Lifting Patagonia</span>
         </NavLink>
 

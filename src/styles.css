@@ -1,16 +1,11 @@
 :root {
-  --acero: #1f2a30; --ripio: #e9e7e1; --papel: #f6f5f1; --tinta: #1a2024;
-  --hi-vis: #f2c200; --ok: #2f7d4f; --aviso: #a86f00; --alto: #b3261e;
-  --sidebar: #075b49; --sidebar-hover: #0c6d57; --surface: #fff;
+  --acero: #1f2a30; --ripio: #e9e7e1; --papel: #fff; --tinta: #1a2024;
+  --hi-vis: #f2c200; --ok: #008047; --aviso: #a86f00; --alto: #b3261e;
+  --sidebar: #008047; --sidebar-hover: #006b3c; --surface: #fff;
+  --header: #0094fe; --header-tinta: #0b1a24;
+  --sidebar-borde: #005c33; --header-borde: #0071c4;
   --muted: #64737a; --line: #e0e5e3; --focus: #f2c200;
   color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --papel: #161d21; --ripio: #26323a; --tinta: #eceae4;
-    --surface: #202a2f; --muted: #afbbb9; --line: #3a474a;
-    color-scheme: dark;
-  }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--papel); color: var(--tinta); font: 400 17px/1.5 "Barlow", system-ui, sans-serif; }
@@ -24,7 +19,7 @@ button { font: 600 1.05rem "Barlow", sans-serif; cursor: pointer; }
 .primary { display: block; width: 100%; min-height: 3.25rem; padding: .75rem 1rem; font: 600 1.05rem "Barlow", sans-serif; text-align: center; text-decoration: none; color: #1a2024; background: var(--hi-vis); border: 0; border-radius: 6px; }
 .primary:disabled { opacity: .45; cursor: not-allowed; }
 .link { background: none; border: 0; color: #fff; text-decoration: underline; }
-.card { background: var(--ripio); border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+.card { background: var(--ripio); border: 1px solid var(--line); border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
 .row { display: flex; gap: .5rem; flex-wrap: wrap; }
 .chip { display: inline-block; padding: .2rem .7rem; border-radius: 999px; font-weight: 600; font-size: .9rem; color: #fff; }
 .chip.vigente { background: var(--ok); } .chip.por-vencer { background: var(--aviso); } .chip.vencido { background: var(--alto); }
@@ -45,9 +40,10 @@ button { font: 600 1.05rem "Barlow", sans-serif; cursor: pointer; }
   position: sticky; top: 0; display: flex; height: 100vh; height: 100dvh;
   flex-direction: column; padding: 1.25rem .85rem 1rem; color: #fff;
   background: var(--sidebar); transition: width .2s ease;
+  z-index: 2; border-right: 2px solid var(--sidebar-borde); box-shadow: 3px 0 10px rgb(0 0 0 / 10%);
 }
 .brand { display: flex; min-height: 3.25rem; align-items: center; gap: .75rem; padding: .25rem .45rem; color: inherit; text-decoration: none; }
-.brand-mark { display: grid; width: 2.45rem; height: 2.45rem; flex: 0 0 auto; place-items: center; border: 2px solid var(--hi-vis); border-radius: 50%; color: var(--hi-vis); font-size: .82rem; font-weight: 700; letter-spacing: -.05em; }
+.brand-mark { display: block; width: 3rem; height: 3rem; flex: 0 0 auto; padding: .2rem; border-radius: 8px; background: #fff; object-fit: contain; }
 .brand-name { font-weight: 600; line-height: 1.15; }
 .sidebar-caption { margin: 2rem .65rem .65rem; color: rgb(255 255 255 / 65%); font-size: .68rem; font-weight: 600; letter-spacing: .12em; }
 .nav-list { display: grid; gap: .35rem; }
@@ -59,7 +55,10 @@ button { font: 600 1.05rem "Barlow", sans-serif; cursor: pointer; }
 .sidebar-footer .sidebar-caption { margin: 0; }
 .sidebar-status { width: .5rem; height: .5rem; flex: 0 0 auto; border-radius: 50%; background: var(--hi-vis); }
 .workspace { min-width: 0; }
-.workspace-header { display: flex; min-height: 4.5rem; align-items: center; gap: 1rem; padding: .6rem clamp(1rem, 3vw, 2.5rem); border-bottom: 1px solid var(--line); background: var(--surface); }
+.workspace-header { display: flex; min-height: 4.5rem; align-items: center; gap: 1rem; padding: .6rem clamp(1rem, 3vw, 2.5rem); position: relative; z-index: 1; border-bottom: 2px solid var(--header-borde); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: var(--header-tinta); background: var(--header); }
+.workspace-header .header-eyebrow, .workspace-header .user-role { color: color-mix(in srgb, var(--header-tinta) 82%, transparent); }
+.workspace-header .icon-button, .workspace-header .sign-out-button { border-color: color-mix(in srgb, var(--header-tinta) 45%, transparent); color: var(--header-tinta); }
+.workspace-header .icon-button:hover, .workspace-header .sign-out-button:hover { background: rgb(255 255 255 / 28%); }
 .icon-button { display: grid; width: 2.5rem; height: 2.5rem; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); border-radius: 6px; color: var(--tinta); background: transparent; font-size: 1.3rem; }
 .icon-button:hover, .sign-out-button:hover { background: var(--ripio); }
 .header-section { display: grid; gap: .1rem; }
