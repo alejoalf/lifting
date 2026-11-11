@@ -18,7 +18,20 @@ const navigation: { caption: string; items: NavigationItem[] }[] = [
       { label: "Mis partes", to: "/chofer", icon: "P", roles: ["chofer", "hidrogrulero"] },
       { label: "Nuevo parte", to: "/chofer/nuevo", icon: "+", roles: ["chofer", "hidrogrulero"] },
       { label: "Partes", to: "/supervisor", icon: "P", roles: ["supervisor", "admin"] },
+      { label: "Mi legajo", to: "/legajo", icon: "L" },
+    ],
+  },
+  {
+    caption: "ADMINISTRACIÓN",
+    items: [
       { label: "Flota", to: "/admin", icon: "F", roles: ["admin"] },
+      { label: "Documentos de flota", to: "/admin/documentos", icon: "D", roles: ["admin"] },
+      { label: "Usuarios y roles", to: "/admin/usuarios", icon: "U", roles: ["admin"] },
+      { label: "Clientes", to: "/admin/datos/clientes", icon: "C", roles: ["admin"] },
+      { label: "Contratos", to: "/admin/datos/contratos", icon: "K", roles: ["admin"] },
+      { label: "Certificaciones", to: "/admin/datos/certificaciones", icon: "M", roles: ["admin"] },
+      { label: "Caja y gastos", to: "/admin/datos/caja", icon: "$", roles: ["admin"] },
+      { label: "Proveedores", to: "/admin/datos/proveedores", icon: "V", roles: ["admin"] },
     ],
   },
   {
@@ -43,6 +56,14 @@ const pageTitles: Record<string, string> = {
   "/chofer/nuevo": "Nuevo parte",
   "/supervisor": "Partes",
   "/admin": "Flota",
+  "/admin/documentos": "Documentos de flota",
+  "/admin/usuarios": "Usuarios y roles",
+  "/admin/datos/clientes": "Clientes",
+  "/admin/datos/contratos": "Contratos y acuerdos",
+  "/admin/datos/certificaciones": "Certificaciones mensuales",
+  "/admin/datos/caja": "Caja y gastos",
+  "/admin/datos/proveedores": "Proveedores",
+  "/legajo": "Mi legajo",
   "/gerenciamientos": "Gerenciamientos de viaje",
   "/gerenciamientos/nuevo": "Nuevo gerenciamiento",
   "/checklist": "Constancia checklist vehicular",
@@ -51,8 +72,8 @@ const pageTitles: Record<string, string> = {
   "/notificaciones": "Historial de notificaciones",
 };
 
-// Todo menos el tablero de flota guarda sus datos en el navegador por ahora.
-const rutasConDatosLocales = /^\/(chofer|supervisor|partes|gerenciamientos|checklist|observaciones|notificaciones)/;
+// Pantallas que por ahora guardan sus datos en el navegador. El resto lee de Supabase.
+const rutasConDatosLocales = /^\/(chofer|supervisor|partes|legajo|admin\/documentos|gerenciamientos|checklist|observaciones|notificaciones)/;
 
 function formatRole(rol: Rol) {
   return rol === "admin" ? "Administrador" : rol === "hidrogrulero" ? "Hidrogrúa" : rol[0].toUpperCase() + rol.slice(1);
@@ -116,7 +137,8 @@ export function AppShell() {
   }
 
   const title = pageTitles[location.pathname]
-    ?? (location.pathname.startsWith("/partes/") ? "Parte diario" : "Lifting Patagonia");
+    ?? (location.pathname.includes("/informe/") ? "Informe del parte"
+      : location.pathname.startsWith("/partes/") ? "Parte diario" : "Lifting Patagonia");
   const groups = navigation
     .map((group) => ({
       ...group,

@@ -9,6 +9,11 @@ import AdminPanel from "./pages/admin/Panel";
 import NuevoGerenciamiento from "./pages/gerenciamientos/Nuevo";
 import HistoricoGerenciamientos from "./pages/gerenciamientos/Historico";
 import DetalleParte from "./pages/partes/Detalle";
+import InformeParte from "./pages/partes/Informe";
+import DocumentosFlota from "./pages/admin/Documentos";
+import Usuarios from "./pages/admin/Usuarios";
+import DatosAdmin from "./pages/admin/Datos";
+import Legajo from "./pages/Legajo";
 import HistoricoChecklist from "./pages/checklist/Historico";
 import NuevaObservacion from "./pages/observaciones/Nueva";
 import HistoricoObservaciones from "./pages/observaciones/Historico";
@@ -26,7 +31,12 @@ export default function App() {
         {/* Disponibles para todos los roles autenticados (el guard del layout ya los cubre). */}
         <Route path="/gerenciamientos" element={<HistoricoGerenciamientos />} />
         <Route path="/gerenciamientos/nuevo" element={<NuevoGerenciamiento />} />
+        <Route path="/admin/documentos" element={<RequireRole roles={["admin"]}><DocumentosFlota /></RequireRole>} />
+        <Route path="/admin/usuarios" element={<RequireRole roles={["admin"]}><Usuarios /></RequireRole>} />
+        <Route path="/admin/datos/:seccion" element={<RequireRole roles={["admin"]}><DatosAdmin /></RequireRole>} />
+        <Route path="/legajo" element={<Legajo />} />
         <Route path="/partes/:id" element={<DetalleParte />} />
+        <Route path="/partes/:id/informe/:perfil" element={<InformeParte />} />
         <Route path="/checklist" element={<HistoricoChecklist />} />
         <Route path="/observaciones" element={<HistoricoObservaciones />} />
         <Route path="/observaciones/nueva" element={<NuevaObservacion />} />

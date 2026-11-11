@@ -152,6 +152,23 @@ label small { color: var(--muted); font-weight: 400; }
 .busqueda-titulo h3 { margin: 0 0 .2rem; color: var(--sidebar-borde); font-size: 1.15rem; }
 .busqueda-titulo p { margin: 0; font-size: .92rem; }
 .tabla-izquierda { text-align: left; }
+.chip.sin-datos { background: var(--muted); }
+.chip.estado-excepcion { background: var(--aviso); }
+.chip.estado-frenado { background: var(--alto); }
+.exito { color: var(--ok); font-weight: 500; }
+.select-tabla { min-height: 2.3rem; margin: 0; padding: .2rem .5rem; }
+.actions-inicio { justify-content: flex-start; }
+.enlace-boton { display: inline-flex; align-items: center; text-decoration: none; }
+.informe { max-width: 56rem; }
+.informe h3 { margin: 1.75rem 0 .75rem; padding-bottom: .3rem; border-bottom: 2px solid var(--sidebar); font-size: 1.1rem; }
+.informe-encabezado { display: flex; align-items: center; gap: 1.25rem; margin-top: 1.5rem; }
+.informe-encabezado img { width: 6rem; height: auto; }
+.informe-encabezado h2, .informe-encabezado p { margin: 0; }
+.informe-empresa { color: var(--muted); font-size: .8rem; font-weight: 600; letter-spacing: .12em; }
+.informe-firma { display: flex; justify-content: flex-end; margin-top: 4rem; }
+.informe-firma div { min-width: 16rem; text-align: center; }
+.informe-firma p { min-height: 1.5rem; margin: 0 0 .3rem; border-bottom: 1px solid var(--tinta); font-weight: 600; }
+.informe-firma span { color: var(--muted); font-size: .85rem; }
 .panel-header-fila { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
 .parte-resumen { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; margin-top: 0; }
 .detalle { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem 1.5rem; margin: 0; }
@@ -233,6 +250,13 @@ label small { color: var(--muted); font-weight: 400; }
 
 @media (max-width: 760px) {
   .sidebar-collapsed .sidebar-nav > div + div { margin-top: 0; padding-top: 0; border-top: 0; }
+}
+
+@media print {
+  .sidebar, .workspace-header, .page-heading, .aviso-local, .no-print, .sidebar-backdrop { display: none !important; }
+  .app-shell, .sidebar-collapsed { display: block; }
+  .page-content { padding: 0; }
+  .chip { border: 1px solid currentColor; color: #000; background: none !important; }
 }
 
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }

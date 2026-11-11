@@ -12,7 +12,7 @@ export function TablaPartes({ partes, mostrarOperador = false }: { partes: Parte
         <thead>
           <tr>
             <th>N°</th><th>Fecha</th>{mostrarOperador && <th>Operador</th>}<th>Vehículo</th><th>Tarea</th>
-            <th>Cliente</th><th>Ruta / locación</th><th>Estado</th><th>Detalle</th>
+            <th>Cliente</th><th>Origen → destino</th><th>Estado</th><th>Firma</th><th>Detalle</th>
           </tr>
         </thead>
         <tbody>
@@ -24,8 +24,9 @@ export function TablaPartes({ partes, mostrarOperador = false }: { partes: Parte
               <td>{p.vehiculo}</td>
               <td>{p.tarea}</td>
               <td>{p.cliente}</td>
-              <td>{p.locacion}</td>
+              <td>{p.origen} → {p.destino}</td>
               <td><EstadoParteChip estado={p.estado} /></td>
+              <td>{p.firmadoPor || "—"}</td>
               <td><Link to={`/partes/${p.id}`}>Ver parte</Link></td>
             </tr>
           ))}

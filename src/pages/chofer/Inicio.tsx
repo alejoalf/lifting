@@ -4,17 +4,16 @@ import { EstadoParteChip, TablaPartes } from "../../components/partes/TablaParte
 import { useColeccion, type EstadoParte } from "../../lib/registros";
 
 const siguientePaso: Record<EstadoParte, string> = {
-  pendiente: "Esperá la autorización de Base antes de salir.",
-  autorizado: "Ya podés salir. Registrá la salida cuando arranques.",
-  en_curso: "Operación en curso. Cerrá el parte al terminar el servicio.",
-  rechazado: "",
+  excepcion: "Hay documentación vencida. Esperá la respuesta de Base antes de salir.",
+  en_curso: "Operación en curso. Cerrá el servicio al terminar la jornada.",
+  frenado: "",
   cerrado: "",
 };
 
 export default function ChoferInicio() {
   const { operador } = useAuth();
-  const propios = useColeccion("partes").filter((p) => p.creadoPor === operador?.id);
-  const abierto = propios.find((p) => p.estado !== "cerrado" && p.estado !== "rechazado");
+  const propios = useColeccion("partesDiarios").filter((p) => p.creadoPor === operador?.id);
+  const abierto = propios.find((p) => p.estado === "excepcion" || p.estado === "en_curso");
   const anteriores = propios.filter((p) => p !== abierto);
 
   return (

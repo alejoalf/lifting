@@ -31,7 +31,54 @@ export interface Gerenciamiento {
   estado: "abierto" | "cerrado";
 }
 
-export type EstadoParte = "pendiente" | "autorizado" | "rechazado" | "en_curso" | "cerrado";
+export type Semaforo = "vigente" | "por-vencer" | "vencido";
+
+/** Tabla 8 de la especificación: legajo documental de vehículos y operadores. */
+export interface Documento {
+  id: number;
+  entidad: "vehiculo" | "operador";
+  /** Dominio normalizado del vehículo, o id de usuario del operador. */
+  entidadId: string;
+  entidadNombre: string;
+  tipo: string;
+  vencimiento: string;
+  archivoNombre: string;
+  cargadoPor: string;
+  cargadoEn: string;
+}
+
+export const TIPOS_DOC_VEHICULO = ["Seguro", "RTO / VTV", "Habilitación técnica hidrogrúa TKA", "Habilitación técnica barquilla Axion"];
+export const TIPOS_DOC_OPERADOR = ["Licencia de conducir", "Psicofísico", "Manejo defensivo"];
+
+export function normalizarDominio(dominio: string) {
+  return dominio.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+/** VIGENTE: más de 15 días. POR VENCER: 15 días o menos. VENCIDO: vence hoy o ya venció. */
+export function semaforoDe(vencimiento: string): Semaforo {
+  const dias = Math.round((new Date(`${vencimiento}T00:00:00`).getTime() - new Date(`${hoy()}T00:00:00`).getTime()) / 86_400_000);
+  return dias <= 0 ? "vencido" : dias <= 15 ? "por-vencer" : "vigente";
+}
+
+/** Documentos que cuentan para una entidad: por cada tipo, solo el de vencimiento más lejano (la renovación). */
+export function documentosDe(documentos: Documento[], entidad: Documento["entidad"], entidadId: string) {
+  const porTipo = new Map<string, Documento>();
+  for (const d of documentos) {
+    if (d.entidad !== entidad || d.entidadId !== entidadId) continue;
+    const actual = porTipo.get(d.tipo);
+    if (!actual || d.vencimiento > actual.vencimiento) porTipo.set(d.tipo, d);
+  }
+  return [...porTipo.values()];
+}
+
+/** El peor estado de un grupo de documentos, o null si no hay ninguno cargado. */
+export function peorSemaforo(documentos: Documento[]): Semaforo | null {
+  const estados = documentos.map((d) => semaforoDe(d.vencimiento));
+  return estados.includes("vencido") ? "vencido" : estados.includes("por-vencer") ? "por-vencer" : estados.length ? "vigente" : null;
+}
+
+/** Tabla 9 de la especificación. "frenado" es la respuesta negativa de Base a una excepción. */
+export type EstadoParte = "excepcion" | "en_curso" | "frenado" | "cerrado";
 
 export interface Parte {
   id: number;
@@ -39,33 +86,41 @@ export interface Parte {
   operador: string;
   creadoEn: string;
   fecha: string;
+  cliente: string;
+  contrato: string;
   vehiculo: string;
   tarea: string;
-  cliente: string;
-  locacion: string;
+  origen: string;
+  destino: string;
   kmInicial: number;
   observaciones: string;
+  /** Semáforo documental al abrir el parte (null = sin documentos cargados). */
+  semaforo: Semaforo | null;
+  documentosVencidos: string[];
   estado: EstadoParte;
-  resueltoPor: string; // quién autorizó o rechazó
+  /** Quién autorizó o frenó la excepción. */
+  resueltoPor: string;
   resueltoEn: string;
-  motivoRechazo: string;
+  motivoFreno: string;
   salidaEn: string;
   cerradoEn: string;
   kmFinal: number | null;
+  horasDeclaradas: number | null;
   trabajoRealizado: string;
+  firmadoPor: string;
+  firmadoEn: string;
 }
 
 export const ESTADOS_PARTE: Record<EstadoParte, string> = {
-  pendiente: "Pendiente de autorización",
-  autorizado: "Autorizado",
-  rechazado: "Rechazado",
+  excepcion: "Excepción pendiente",
   en_curso: "En curso",
+  frenado: "Unidad frenada",
   cerrado: "Cerrado",
 };
 
 export interface Notificacion {
   id: number;
-  /** id del usuario destinatario, o "rol:supervisor" para todos los supervisores y administradores. */
+  /** id del usuario destinatario, "rol:supervisor" (supervisores y administradores) o "rol:admin". */
   para: string;
   titulo: string;
   mensaje: string;
@@ -107,7 +162,8 @@ interface Colecciones {
   gerenciamientos: Gerenciamiento;
   observaciones: Observacion;
   checklists: Checklist;
-  partes: Parte;
+  partesDiarios: Parte;
+  documentos: Documento;
   notificaciones: Notificacion;
 }
 
@@ -164,9 +220,14 @@ export function actualizar<K extends Clave>(clave: K, id: number, cambios: Parti
 
 export const PARA_SUPERVISORES = "rol:supervisor";
 
+/** El Titular: quien resuelve las excepciones documentales. */
+export const PARA_ADMINS = "rol:admin";
+
 export function esPara(n: Notificacion, usuario: { id: string; rol: string } | null) {
   if (!usuario) return false;
-  return n.para === usuario.id || (n.para === PARA_SUPERVISORES && (usuario.rol === "supervisor" || usuario.rol === "admin"));
+  if (n.para === usuario.id) return true;
+  if (n.para === PARA_ADMINS) return usuario.rol === "admin";
+  return n.para === PARA_SUPERVISORES && (usuario.rol === "supervisor" || usuario.rol === "admin");
 }
 
 // Cada notificación equivale a un aviso que más adelante también saldrá por mail.
