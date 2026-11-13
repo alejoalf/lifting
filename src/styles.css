@@ -101,6 +101,8 @@ button { font: 600 1.05rem "Barlow", sans-serif; cursor: pointer; }
 .login-submit:disabled { cursor: wait; opacity: .75; }
 .login-submit:focus-visible, .password-toggle:focus-visible { outline: 3px solid #e3b700; outline-offset: 3px; }
 .login-submit-arrow { font-size: 1.25rem; line-height: 1; }
+.login-top-logo { display: flex; justify-content: center; margin: 0 0 1.4rem; }
+.login-top-logo img { display: block; width: 8rem; height: auto; border-radius: 10px; background: #fff; object-fit: contain; }
 .login-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: .25rem; margin-bottom: 2.25rem; padding: .25rem; border: 1px solid #e4e9e6; border-radius: 10px; background: #eef1ef; }
 .login-tabs button { min-height: 2.7rem; border: 0; border-radius: 7px; color: #71807a; background: transparent; font-size: .88rem; font-weight: 600; }
 .login-tabs button.is-active { color: #17613d; background: #fff; box-shadow: 0 1px 4px rgb(22 46 33 / 12%); }

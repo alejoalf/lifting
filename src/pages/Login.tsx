@@ -143,6 +143,9 @@ export default function Login() {
 
       <section className="login-panel">
         <div className="login-form-wrap">
+          <div className="login-top-logo">
+            <img src="/logo.png" alt="Lifting Patagonia" width={828} height={682} />
+          </div>
           <div className="login-tabs" role="tablist" aria-label="Acceso al portal">
             <button
               id="login-tab"
