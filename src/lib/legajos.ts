@@ -65,7 +65,9 @@ export interface DatosLegajos {
 }
 
 const TAMANO_MAXIMO = 10 * 1024 * 1024;
-export const FORMATOS_ARCHIVO = "application/pdf,image/jpeg,image/png,image/webp";
+/** La lectura con IA queda pendiente: pasar a true cuando la función leer-documento esté desplegada. */
+export const LECTURA_IA_ACTIVA = false;
+export const FORMATOS_ARCHIVO ="application/pdf,image/jpeg,image/png,image/webp";
 
 /** Tipos, actividades y documentos. Sin operadorId trae los documentos que el usuario puede ver. */
 export function useLegajos(operadorId?: string) {
@@ -203,6 +205,37 @@ export async function guardarDocumento(documento: {
     lectura_ia: documento.lectura,
   });
   if (error) throw new Error(error.message);
+}
+
+/** Borra un archivo que ya no usa ningún documento. Si falla, solo queda el archivo sin usar. */
+async function borrarArchivo(path: string) {
+  await getSupabase().storage.from("legajos").remove([path]).catch(() => null);
+}
+
+/** Edita un documento. `path` vacío = conserva el archivo actual. */
+export async function editarDocumento(documento: DocumentoLegajo, cambios: {
+  tipoId: string;
+  fechaEmision: string;
+  vencimiento: string;
+  path: string;
+  archivoNombre: string;
+}) {
+  const { error } = await getSupabase().rpc("editar_documento_legajo", {
+    p_documento_id: documento.id,
+    p_tipo_documento_id: cambios.tipoId,
+    p_fecha_emision: cambios.fechaEmision || null,
+    p_vencimiento: cambios.vencimiento || null,
+    p_archivo_path: cambios.path || null,
+    p_archivo_nombre: cambios.path ? cambios.archivoNombre : null,
+  });
+  if (error) throw new Error(error.message);
+  if (cambios.path) await borrarArchivo(documento.archivo_path);
+}
+
+export async function eliminarDocumento(documento: DocumentoLegajo) {
+  const { error } = await getSupabase().rpc("eliminar_documento_legajo", { p_documento_id: documento.id });
+  if (error) throw new Error(error.message);
+  await borrarArchivo(documento.archivo_path);
 }
 
 export async function revisarDocumento(id: string, aprobar: boolean, motivo = "") {
