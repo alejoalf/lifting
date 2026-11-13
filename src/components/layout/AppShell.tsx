@@ -26,7 +26,6 @@ const navigation: { caption: string; items: NavigationItem[] }[] = [
     caption: "ADMINISTRACIÓN",
     items: [
       { label: "Flota", to: "/admin", icon: "F", roles: ["admin"] },
-      { label: "Documentos de flota", to: "/admin/documentos", icon: "D", roles: ["admin"] },
       { label: "Requisitos por actividad", to: "/admin/legajos/requisitos", icon: "R", roles: ["admin"] },
       { label: "Usuarios y roles", to: "/admin/usuarios", icon: "U", roles: ["admin"] },
       { label: "Clientes", to: "/admin/datos/clientes", icon: "C", roles: ["admin"] },
@@ -58,7 +57,7 @@ const pageTitles: Record<string, string> = {
   "/chofer/nuevo": "Nuevo parte",
   "/supervisor": "Partes",
   "/admin": "Flota",
-  "/admin/documentos": "Documentos de flota",
+  "/admin/flota/nuevo": "Nuevo vehículo",
   "/admin/usuarios": "Usuarios y roles",
   "/admin/datos/clientes": "Clientes",
   "/admin/datos/contratos": "Contratos y acuerdos",
@@ -77,7 +76,7 @@ const pageTitles: Record<string, string> = {
 };
 
 // Pantallas que por ahora guardan sus datos en el navegador. El resto lee de Supabase.
-const rutasConDatosLocales = /^\/(admin\/documentos|gerenciamientos|checklist|observaciones|notificaciones)/;
+const rutasConDatosLocales = /^\/(gerenciamientos|checklist|observaciones|notificaciones)/;
 
 function formatRole(rol: Rol) {
   return rol === "admin" ? "Administrador" : rol === "hidrogrulero" ? "Hidrogrúa" : rol[0].toUpperCase() + rol.slice(1);
@@ -143,7 +142,8 @@ export function AppShell() {
   const title = pageTitles[location.pathname]
     ?? (location.pathname.includes("/informe/") ? "Informe del parte"
       : location.pathname.startsWith("/partes/") ? "Parte diario"
-        : location.pathname.startsWith("/admin/legajos/") ? "Legajo del operador" : "Lifting Patagonia");
+        : location.pathname.startsWith("/admin/legajos/") ? "Legajo del operador"
+          : location.pathname.startsWith("/admin/flota/") ? "Vehículo" : "Lifting Patagonia");
   const esInicio = ["/chofer", "/supervisor", "/admin"].includes(location.pathname);
   const groups = navigation
     .map((group) => ({

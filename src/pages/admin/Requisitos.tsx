@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { getSupabase } from "../../lib/supabase";
-import { useLegajos, type Actividad, type TipoDocumento } from "../../lib/legajos";
+import { TiposDocumento } from "../../components/legajo/TiposDocumento";
+import { useLegajos, type Actividad } from "../../lib/legajos";
 
 interface Cliente { id: string; razon_social: string }
 
@@ -41,23 +42,6 @@ export default function Requisitos() {
     } finally {
       setGuardando(false);
     }
-  }
-
-  async function crearTipo(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const campos = new FormData(form);
-    const nombre = String(campos.get("nombre") ?? "").trim();
-    const creado = await ejecutar(
-      () => getSupabase().from("tipos_documento").insert({ nombre, requiere_vencimiento: campos.get("vence") === "on" }),
-      `Tipo de documento «${nombre}» creado.`);
-    if (creado) form.reset();
-  }
-
-  function cambiarTipo(tipo: TipoDocumento, cambios: Partial<TipoDocumento>) {
-    return ejecutar(
-      () => getSupabase().from("tipos_documento").update(cambios).eq("id", tipo.id),
-      `Tipo de documento «${tipo.nombre}» actualizado.`);
   }
 
   async function guardarActividad(event: FormEvent<HTMLFormElement>) {
@@ -159,42 +143,7 @@ export default function Requisitos() {
         </form>
       </section>
 
-      <section className="panel">
-        <h2 className="panel-header">Tipos de documento</h2>
-        <div className="panel-body">
-          <div className="table-wrap">
-            <table className="tabla tabla-izquierda">
-              <thead><tr><th>Tipo</th><th>Tiene vencimiento</th><th>Activo</th><th>Acciones</th></tr></thead>
-              <tbody>
-                {datos.tipos.map((t) => (
-                  <tr key={t.id}>
-                    <td>{t.nombre}</td>
-                    <td>{t.requiere_vencimiento ? "Sí" : "No"}</td>
-                    <td>{t.activo ? "Sí" : "No"}</td>
-                    <td>
-                      <button type="button" className="secondary" disabled={guardando} onClick={() => void cambiarTipo(t, { activo: !t.activo })}>
-                        {t.activo ? "Desactivar" : "Activar"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {datos.tipos.length === 0 && <tr><td colSpan={4} className="vacio">Todavía no hay tipos de documento.</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <h2 className="panel-header">Nuevo tipo de documento</h2>
-        <form className="panel-body" onSubmit={crearTipo}>
-          <div className="form-grid">
-            <label>Nombre<input name="nombre" placeholder="Ej.: Manejo defensivo" required /></label>
-          </div>
-          <label className="check"><input type="checkbox" name="vence" defaultChecked /> Tiene fecha de vencimiento</label>
-          <div className="actions">
-            <button type="submit" className="primary inline" disabled={guardando}>Crear tipo</button>
-          </div>
-        </form>
-      </section>
+      <TiposDocumento aplicaA="operador" tipos={datos.tipos} onCambio={refresh} />
     </>
   );
 }

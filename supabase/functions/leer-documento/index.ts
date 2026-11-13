@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
 
   const [{ data: archivo, error: falloArchivo }, { data: tipos, error: falloTipos }] = await Promise.all([
     supabase.storage.from("legajos").download(path),
-    supabase.from("tipos_documento").select("id, nombre").eq("activo", true),
+    supabase.from("tipos_documento").select("id, nombre").eq("activo", true).eq("aplica_a", "operador"),
   ]);
   if (falloArchivo || !archivo) return responder({ error: "No se pudo abrir el archivo." }, 404);
   if (falloTipos || !tipos) return responder({ error: "No se pudieron consultar los tipos de documento." }, 500);

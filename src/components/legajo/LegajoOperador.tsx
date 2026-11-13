@@ -3,7 +3,7 @@ import { formatFecha } from "../../lib/registros";
 import {
   ESTADOS_REQUISITO, FORMATOS_ARCHIVO, LECTURA_IA_ACTIVA, abrirArchivo, editarDocumento, eliminarDocumento,
   guardarDocumento, habilitacionesDe, leerDocumentoConIA, nombreActividad, subirArchivo, useLegajos,
-  type DatosLegajos, type DocumentoLegajo, type EstadoRequisito, type LecturaIA,
+  type Bucket, type DatosLegajos, type DocumentoLegajo, type EstadoRequisito, type LecturaIA,
 } from "../../lib/legajos";
 
 export function ChipRequisito({ estado }: { estado: EstadoRequisito }) {
@@ -22,13 +22,13 @@ const REVISION: Record<DocumentoLegajo["estado"], { clase: string; texto: string
   rechazado: { clase: "vencido", texto: "Rechazado" },
 };
 
-export function BotonVerArchivo({ path }: { path: string }) {
+export function BotonVerArchivo({ path, bucket }: { path: string; bucket?: Bucket }) {
   const [error, setError] = useState("");
   return (
     <>
       <button type="button" className="secondary" onClick={() => {
         setError("");
-        abrirArchivo(path).catch((fallo: Error) => setError(fallo.message));
+        abrirArchivo(path, bucket).catch((fallo: Error) => setError(fallo.message));
       }}>Ver</button>
       {error && <span className="error" role="alert"> {error}</span>}
     </>

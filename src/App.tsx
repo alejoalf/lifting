@@ -10,7 +10,7 @@ import NuevoGerenciamiento from "./pages/gerenciamientos/Nuevo";
 import HistoricoGerenciamientos from "./pages/gerenciamientos/Historico";
 import DetalleParte from "./pages/partes/Detalle";
 import InformeParte from "./pages/partes/Informe";
-import DocumentosFlota from "./pages/admin/Documentos";
+import Vehiculo from "./pages/admin/Flota";
 import Usuarios from "./pages/admin/Usuarios";
 import DatosAdmin from "./pages/admin/Datos";
 import Legajo from "./pages/Legajo";
@@ -33,7 +33,7 @@ export default function App() {
         {/* Disponibles para todos los roles autenticados (el guard del layout ya los cubre). */}
         <Route path="/gerenciamientos" element={<HistoricoGerenciamientos />} />
         <Route path="/gerenciamientos/nuevo" element={<NuevoGerenciamiento />} />
-        <Route path="/admin/documentos" element={<RequireRole roles={["admin"]}><DocumentosFlota /></RequireRole>} />
+        <Route path="/admin/flota/:vehiculoId" element={<RequireRole roles={["admin"]}><Vehiculo /></RequireRole>} />
         <Route path="/admin/usuarios" element={<RequireRole roles={["admin"]}><Usuarios /></RequireRole>} />
         <Route path="/admin/datos/:seccion" element={<RequireRole roles={["admin"]}><DatosAdmin /></RequireRole>} />
         <Route path="/legajo" element={<Legajo />} />

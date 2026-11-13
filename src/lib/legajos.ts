@@ -7,6 +7,7 @@ import { semaforoDe } from "./registros";
 
 export interface TipoDocumento {
   id: string;
+  aplica_a: "operador" | "vehiculo";
   nombre: string;
   requiere_vencimiento: boolean;
   activo: boolean;
@@ -79,7 +80,7 @@ export function useLegajos(operadorId?: string) {
     const consulta = supabase.from("documentos_legajo").select("*").order("created_at", { ascending: false });
     try {
       const [tipos, actividades, documentos] = await Promise.all([
-        supabase.from("tipos_documento").select("*").order("nombre"),
+        supabase.from("tipos_documento").select("*").eq("aplica_a", "operador").order("nombre"),
         supabase.rpc("listar_actividades_legajo"),
         operadorId ? consulta.eq("operador_id", operadorId) : consulta,
       ]);
@@ -163,12 +164,14 @@ export function nombreActividad(actividad: Actividad) {
   return actividad.cliente ? `${actividad.nombre} · ${actividad.cliente}` : actividad.nombre;
 }
 
-/** Sube el archivo al bucket privado y devuelve su ruta. */
-export async function subirArchivo(operadorId: string, archivo: File) {
+export type Bucket = "legajos" | "flota";
+
+/** Sube el archivo al bucket privado, dentro de la carpeta indicada, y devuelve su ruta. */
+export async function subirArchivo(carpeta: string, archivo: File, bucket: Bucket = "legajos") {
   if (archivo.size > TAMANO_MAXIMO) throw new Error("El archivo supera los 10 MB.");
   const extension = /\.([a-z0-9]+)$/i.exec(archivo.name)?.[1].toLowerCase() ?? "bin";
-  const path = `${operadorId}/${crypto.randomUUID()}.${extension}`;
-  const { error } = await getSupabase().storage.from("legajos").upload(path, archivo, { contentType: archivo.type });
+  const path = `${carpeta}/${crypto.randomUUID()}.${extension}`;
+  const { error } = await getSupabase().storage.from(bucket).upload(path, archivo, { contentType: archivo.type });
   if (error) throw new Error(`No se pudo subir el archivo: ${error.message}`);
   return path;
 }
@@ -208,8 +211,8 @@ export async function guardarDocumento(documento: {
 }
 
 /** Borra un archivo que ya no usa ningún documento. Si falla, solo queda el archivo sin usar. */
-async function borrarArchivo(path: string) {
-  await getSupabase().storage.from("legajos").remove([path]).catch(() => null);
+export async function borrarArchivo(path: string, bucket: Bucket = "legajos") {
+  await getSupabase().storage.from(bucket).remove([path]).catch(() => null);
 }
 
 /** Edita un documento. `path` vacío = conserva el archivo actual. */
@@ -248,10 +251,10 @@ export async function revisarDocumento(id: string, aprobar: boolean, motivo = ""
 }
 
 /** Abre el archivo en otra pestaña con un enlace temporal. */
-export async function abrirArchivo(path: string) {
+export async function abrirArchivo(path: string, bucket: Bucket = "legajos") {
   // La pestaña se abre antes del pedido para que el navegador no la bloquee.
   const pestana = window.open("", "_blank");
-  const { data, error } = await getSupabase().storage.from("legajos").createSignedUrl(path, 60);
+  const { data, error } = await getSupabase().storage.from(bucket).createSignedUrl(path, 60);
   if (error || !data) {
     pestana?.close();
     throw new Error("No se pudo abrir el archivo.");
