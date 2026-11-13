@@ -18,7 +18,7 @@ export function TablaPartes({ partes, mostrarOperador = false }: { partes: Parte
         <tbody>
           {partes.map((p) => (
             <tr key={p.id}>
-              <td>{p.id}</td>
+              <td>{p.numero}</td>
               <td>{formatFecha(p.fecha)}</td>
               {mostrarOperador && <td>{p.operador}</td>}
               <td>{p.vehiculo}</td>

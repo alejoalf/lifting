@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { formatFecha, formatFechaHora, useColeccion } from "../../lib/registros";
+import { formatFecha, formatFechaHora } from "../../lib/registros";
+import { usePartes } from "../../lib/usePartes";
 
 const PERFILES: Record<string, string> = {
   "1": "Parte comercial",
@@ -14,12 +15,15 @@ const semaforoTexto = { vigente: "Vigente", "por-vencer": "Por vencer", vencido:
 export default function InformeParte() {
   const { id, perfil = "1" } = useParams();
   const { operador } = useAuth();
-  const parte = useColeccion("partesDiarios").find((p) => p.id === Number(id));
+  const { partes, loading, error } = usePartes();
+  const parte = partes.find((p) => p.id === id);
 
   const esAdmin = operador?.rol === "admin";
   const puedeVer = parte && operador && (esAdmin || operador.rol === "supervisor" || parte.creadoPor === operador.id);
+  if (loading) return <p className="estado">Cargando informe…</p>;
+  if (error) return <p className="error" role="alert">{error}</p>;
   if (!parte || !puedeVer || !PERFILES[perfil] || (perfil === "3" && !esAdmin) || parte.estado !== "cerrado") {
-    return <p className="vacio">Este informe no está disponible. <Link to={parte ? `/partes/${parte.id}` : "/"}>Volver</Link></p>;
+    return <p className="vacio">Este informe no está disponible. <Link to={parte ? `/partes/${parte.id}` : "/chofer"}>Volver</Link></p>;
   }
 
   const km = parte.kmFinal !== null ? parte.kmFinal - parte.kmInicial : null;
@@ -35,7 +39,7 @@ export default function InformeParte() {
         <img src="/logo.png" alt="" width={828} height={682} />
         <div>
           <p className="informe-empresa">LIFTING PATAGONIA SAS</p>
-          <h2>{PERFILES[perfil]} · Parte N° {parte.id}</h2>
+          <h2>{PERFILES[perfil]} · Parte N° {parte.numero}</h2>
           <p>{formatFecha(parte.fecha)}{perfil === "3" && " · Uso interno exclusivo"}</p>
         </div>
       </header>

@@ -78,10 +78,11 @@ export function peorSemaforo(documentos: Documento[]): Semaforo | null {
 }
 
 /** Tabla 9 de la especificación. "frenado" es la respuesta negativa de Base a una excepción. */
-export type EstadoParte = "excepcion" | "en_curso" | "frenado" | "cerrado";
+export type EstadoParte = "pendiente" | "excepcion" | "en_curso" | "frenado" | "cerrado";
 
 export interface Parte {
-  id: number;
+  id: string;
+  numero: number;
   creadoPor: string;
   operador: string;
   creadoEn: string;
@@ -112,6 +113,7 @@ export interface Parte {
 }
 
 export const ESTADOS_PARTE: Record<EstadoParte, string> = {
+  pendiente: "Pendiente de control documental",
   excepcion: "Excepción pendiente",
   en_curso: "En curso",
   frenado: "Unidad frenada",
@@ -162,7 +164,6 @@ interface Colecciones {
   gerenciamientos: Gerenciamiento;
   observaciones: Observacion;
   checklists: Checklist;
-  partesDiarios: Parte;
   documentos: Documento;
   notificaciones: Notificacion;
 }

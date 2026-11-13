@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { TablaPartes } from "../../components/partes/TablaPartes";
-import { ESTADOS_PARTE, contiene, useColeccion, type EstadoParte } from "../../lib/registros";
+import { ESTADOS_PARTE, contiene, type EstadoParte } from "../../lib/registros";
+import { usePartes } from "../../lib/usePartes";
 
 export default function SupervisorPanel() {
   const { operador } = useAuth();
-  const partes = useColeccion("partesDiarios");
+  const { partes, loading, error } = usePartes();
   const [estado, setEstado] = useState<EstadoParte | "">("");
   const [busqueda, setBusqueda] = useState("");
 
@@ -18,6 +19,9 @@ export default function SupervisorPanel() {
     (!estado || p.estado === estado) &&
     contiene(`${p.operador} ${p.vehiculo} ${p.cliente} ${p.origen} ${p.destino}`, busqueda));
   const nombre = operador?.nombre_completo.trim().split(/\s+/)[0] || "equipo";
+
+  if (loading) return <p className="estado">Cargando partes del equipo…</p>;
+  if (error) return <p className="error" role="alert">{error}</p>;
 
   return (
     <div className="dashboard-page dashboard-supervisor">

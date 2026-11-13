@@ -73,7 +73,7 @@ const pageTitles: Record<string, string> = {
 };
 
 // Pantallas que por ahora guardan sus datos en el navegador. El resto lee de Supabase.
-const rutasConDatosLocales = /^\/(chofer|supervisor|partes|legajo|admin\/documentos|gerenciamientos|checklist|observaciones|notificaciones)/;
+const rutasConDatosLocales = /^\/(legajo|admin\/documentos|gerenciamientos|checklist|observaciones|notificaciones)/;
 
 function formatRole(rol: Rol) {
   return rol === "admin" ? "Administrador" : rol === "hidrogrulero" ? "Hidrogrúa" : rol[0].toUpperCase() + rol.slice(1);

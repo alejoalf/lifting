@@ -1,95 +1,81 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { StatusChip } from "../../components/ui/StatusChip";
-import {
-  PARA_ADMINS, PARA_SUPERVISORES, agregar, documentosDe, formatFecha, hoy, normalizarDominio, notificar,
-  peorSemaforo, semaforoDe, useColeccion,
-} from "../../lib/registros";
-import { useDominios } from "../../lib/useVehiculos";
+import { crearParte, useCatalogoPartes, usePartes, type TipoTarea } from "../../lib/usePartes";
+import { formatFecha, hoy } from "../../lib/registros";
 
-// Barrera de salida (Módulo A): con algún documento VENCIDO del vehículo o del operador,
-// el parte no puede iniciarse y solo queda "Solicitar autorización a Base".
-// PENDIENTE: esta validación tiene que repetirse en el servidor cuando el legajo esté en la base.
-// PENDIENTE (Módulo B): generar el Análisis de Riesgo (ATS) y pedir la conformidad antes de salir.
+const tareas: { valor: TipoTarea; etiqueta: string }[] = [
+  { valor: "Transporte", etiqueta: "Transporte" },
+  { valor: "Izaje Hidrogrua", etiqueta: "Izaje con hidrogrúa" },
+  { valor: "Altura Barquilla", etiqueta: "Altura con barquilla" },
+];
+
+function esTipoTarea(valor: string): valor is TipoTarea {
+  return tareas.some((tarea) => tarea.valor === valor);
+}
+
 export default function NuevoParte() {
   const { operador } = useAuth();
   const navigate = useNavigate();
-  const dominios = useDominios();
-  const documentos = useColeccion("documentos");
-  const [vehiculo, setVehiculo] = useState("");
-  const abierto = useColeccion("partesDiarios").find(
-    (p) => p.creadoPor === operador?.id && (p.estado === "excepcion" || p.estado === "en_curso"),
-  );
+  const { partes, loading: cargandoPartes, error: errorPartes } = usePartes();
+  const { catalogo, loading: cargandoCatalogo, error: errorCatalogo } = useCatalogoPartes();
+  const [clienteId, setClienteId] = useState("");
+  const [vehiculoId, setVehiculoId] = useState("");
+  const [contratoId, setContratoId] = useState("");
+  const [tipoTarea, setTipoTarea] = useState<TipoTarea | "">("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   if (!operador) return null;
+  if (cargandoPartes || cargandoCatalogo) return <p className="estado">Cargando datos para crear el parte…</p>;
+  if (errorPartes || errorCatalogo) {
+    return <p className="error" role="alert">{errorPartes || errorCatalogo}</p>;
+  }
 
+  const abierto = partes.find((parte) =>
+    parte.creadoPor === operador.id && parte.estado !== "cerrado" && parte.estado !== "frenado");
   if (abierto) {
     return (
       <section className="panel">
-        <h2 className="panel-header">Ya tenés un parte abierto</h2>
+        <h2 className="panel-header">Ya tenés un parte pendiente</h2>
         <div className="panel-body">
-          <p>Cerrá el parte N° {abierto.id} antes de abrir uno nuevo.</p>
-          <div className="actions"><Link to={`/partes/${abierto.id}`} className="primary inline">Ver parte N° {abierto.id}</Link></div>
+          <p>El parte N° {abierto.numero} debe completar el control documental antes de iniciar una salida.</p>
+          <div className="actions"><Link to={`/partes/${abierto.id}`} className="primary inline">Ver parte pendiente</Link></div>
         </div>
       </section>
     );
   }
 
-  const docsVehiculo = vehiculo.trim() ? documentosDe(documentos, "vehiculo", normalizarDominio(vehiculo)) : [];
-  const docsOperador = documentosDe(documentos, "operador", operador.id);
-  const controlados = [...docsVehiculo, ...docsOperador];
-  const semaforo = peorSemaforo(controlados);
-  const descripcion = (d: (typeof controlados)[number]) =>
-    `${d.tipo} (${d.entidad === "vehiculo" ? "vehículo" : "operador"}, vence ${formatFecha(d.vencimiento)})`;
-  const vencidos = controlados.filter((d) => semaforoDe(d.vencimiento) === "vencido").map(descripcion);
-  const porVencer = controlados.filter((d) => semaforoDe(d.vencimiento) === "por-vencer").map(descripcion);
-  const bloqueado = vencidos.length > 0;
+  const contratos = catalogo.contratos.filter((contrato) =>
+    contrato.clienteId === clienteId && contrato.vehiculoId === vehiculoId);
 
-  function enviar(event: FormEvent<HTMLFormElement>) {
+  async function enviar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!operador) return;
-    const datos = new FormData(event.currentTarget);
-    const texto = (campo: string) => String(datos.get(campo) ?? "").trim();
-    const ahora = new Date().toISOString();
-
-    const parte = agregar("partesDiarios", {
-      creadoPor: operador.id,
-      operador: operador.nombre_completo,
-      creadoEn: ahora,
-      fecha: hoy(),
-      cliente: texto("cliente"),
-      contrato: texto("contrato"),
-      vehiculo: vehiculo.trim().toUpperCase(),
-      tarea: texto("tarea"),
-      origen: texto("origen"),
-      destino: texto("destino"),
-      kmInicial: Number(texto("kmInicial")),
-      observaciones: texto("observaciones"),
-      semaforo,
-      documentosVencidos: vencidos,
-      estado: bloqueado ? "excepcion" : "en_curso",
-      resueltoPor: "",
-      resueltoEn: "",
-      motivoFreno: "",
-      salidaEn: bloqueado ? "" : ahora,
-      cerradoEn: "",
-      kmFinal: null,
-      horasDeclaradas: null,
-      trabajoRealizado: "",
-      firmadoPor: "",
-      firmadoEn: "",
-    });
-
-    const enlace = `/partes/${parte.id}`;
-    if (bloqueado) {
-      notificar(PARA_ADMINS, `Pedido de autorización: parte N° ${parte.id}`,
-        `${operador.nombre_completo} pide salida excepcional con ${parte.vehiculo}. Vencido: ${vencidos.join("; ")}.`, enlace);
-    } else {
-      notificar(PARA_SUPERVISORES, `Operación en curso: parte N° ${parte.id}`,
-        `${operador.nombre_completo} salió con ${parte.vehiculo} hacia ${parte.destino}.`, enlace);
+    setError("");
+    if (!tipoTarea) {
+      setError("Elegí el tipo de tarea.");
+      return;
     }
-    navigate(enlace);
+
+    const form = new FormData(event.currentTarget);
+    setSubmitting(true);
+    try {
+      const parte = await crearParte({
+        clienteId,
+        contratoId: contratoId || null,
+        vehiculoId,
+        tipoTarea,
+        origen: String(form.get("origen") ?? "").trim(),
+        destino: String(form.get("destino") ?? "").trim(),
+        kmInicial: Number(form.get("kmInicial")),
+        observaciones: String(form.get("observaciones") ?? "").trim(),
+      });
+      navigate(`/partes/${parte.id}`);
+    } catch (fallo) {
+      setError(fallo instanceof Error ? fallo.message : "No se pudo registrar el parte. Revisá la conexión e intentá de nuevo.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -101,54 +87,61 @@ export default function NuevoParte() {
           <label>Operador<input value={operador.nombre_completo} readOnly disabled /></label>
         </div>
         <div className="form-grid">
-          <label>Cliente<input name="cliente" required /></label>
-          <label>Contrato <small>(opcional)</small><input name="contrato" /></label>
-        </div>
-        <div className="form-grid">
-          <label>Vehículo <small>(dominio)</small>
-            <input list="dominios-parte" value={vehiculo} onChange={(e) => setVehiculo(e.target.value)} required />
-            <datalist id="dominios-parte">{dominios.map((d) => <option key={d} value={d} />)}</datalist>
+          <label>Cliente
+            <select value={clienteId} onChange={(event) => {
+              setClienteId(event.target.value);
+              setContratoId("");
+            }} required>
+              <option value="" disabled>Elegí un cliente</option>
+              {catalogo.clientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>)}
+            </select>
           </label>
-          <label>Kilometraje inicial<input type="number" name="kmInicial" min="0" step="1" required /></label>
-          <label>Tarea
-            <select name="tarea" defaultValue="" required>
-              <option value="" disabled>Elegí una tarea</option>
-              <option>Transporte</option><option>Izaje con hidrogrúa</option><option>Altura con barquilla</option>
+          <label>Vehículo disponible
+            <select value={vehiculoId} onChange={(event) => {
+              setVehiculoId(event.target.value);
+              setContratoId("");
+            }} required>
+              <option value="" disabled>Elegí un vehículo</option>
+              {catalogo.vehiculos.map((vehiculo) => <option key={vehiculo.id} value={vehiculo.id}>{vehiculo.nombre}</option>)}
             </select>
           </label>
         </div>
         <div className="form-grid">
+          <label>Contrato <small>(opcional)</small>
+            <select value={contratoId} onChange={(event) => setContratoId(event.target.value)}>
+              <option value="">Sin contrato</option>
+              {contratos.map((contrato) => <option key={contrato.id} value={contrato.id}>{contrato.nombre}</option>)}
+            </select>
+          </label>
+          <label>Kilometraje inicial<input type="number" name="kmInicial" min="0" step="1" required /></label>
+          <label>Tarea
+            <select value={tipoTarea} onChange={(event) => {
+              const value = event.target.value;
+              setTipoTarea(esTipoTarea(value) ? value : "");
+            }} required>
+              <option value="" disabled>Elegí una tarea</option>
+              {tareas.map((tarea) => <option key={tarea.valor} value={tarea.valor}>{tarea.etiqueta}</option>)}
+            </select>
+          </label>
+        </div>
+        {clienteId && vehiculoId && contratos.length === 0 && (
+          <p className="ayuda">No hay contratos vigentes para esta combinación de cliente y vehículo.</p>
+        )}
+        {catalogo.clientes.length === 0 && <p className="error" role="alert">No hay clientes disponibles para crear un parte.</p>}
+        {catalogo.vehiculos.length === 0 && <p className="error" role="alert">No hay vehículos disponibles para crear un parte.</p>}
+        <div className="form-grid">
           <label>Origen<input name="origen" required /></label>
-          <label>Destino <small>(ruta / locación)</small><input name="destino" placeholder="Ej: Ruta 7 hacia yacimiento" required /></label>
+          <label>Destino<input name="destino" placeholder="Ruta o locación" required /></label>
         </div>
         <label>Observaciones <small>(opcional)</small><textarea name="observaciones" rows={3} /></label>
-      </div>
-
-      <h2 className="panel-header panel-header-fila">Semáforo de salida<StatusChip estado={semaforo} /></h2>
-      <div className="panel-body">
-        {vencidos.length > 0 && (
-          <>
-            <p className="error">No podés iniciar el parte: hay documentación vencida.</p>
-            <ul>{vencidos.map((d) => <li key={d}>{d}</li>)}</ul>
-          </>
-        )}
-        {porVencer.length > 0 && (
-          <>
-            <p>Documentación por vencer en 15 días o menos:</p>
-            <ul>{porVencer.map((d) => <li key={d}>{d}</li>)}</ul>
-          </>
-        )}
-        {semaforo === "vigente" && <p>Documentación del vehículo y del operador en regla.</p>}
-        {(docsVehiculo.length === 0 || docsOperador.length === 0) && (
-          <p className="ayuda">
-            {docsOperador.length === 0 && <>No tenés documentos cargados en <Link to="/legajo">tu legajo</Link>. </>}
-            {docsVehiculo.length === 0 && (vehiculo.trim() ? "Este vehículo no tiene documentos cargados. " : "Elegí un vehículo para controlar su documentación. ")}
-            Lo que no está cargado no se puede controlar.
-          </p>
-        )}
-
+        <p className="aviso-local" role="note">
+          El control documental todavía no está conectado a Supabase. El parte se guardará como pendiente y no habilita la salida del vehículo.
+        </p>
+        {error && <p className="error" role="alert">{error}</p>}
         <div className="actions">
-          <button type="submit" className="primary inline">{bloqueado ? "Solicitar autorización a Base" : "Iniciar parte"}</button>
+          <button type="submit" className="primary inline" disabled={submitting || !catalogo.clientes.length || !catalogo.vehiculos.length}>
+            {submitting ? "Guardando…" : "Registrar parte pendiente"}
+          </button>
         </div>
       </div>
     </form>

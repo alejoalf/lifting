@@ -1,23 +1,29 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { EstadoParteChip, TablaPartes } from "../../components/partes/TablaPartes";
-import { useColeccion, type EstadoParte } from "../../lib/registros";
+import { usePartes } from "../../lib/usePartes";
+import type { EstadoParte } from "../../lib/registros";
 
 const siguientePaso: Record<EstadoParte, string> = {
+  pendiente: "El control documental debe completarse antes de iniciar la salida.",
   excepcion: "Hay documentación vencida. Esperá la respuesta de Base antes de salir.",
   en_curso: "Operación en curso. Cerrá el servicio al terminar la jornada.",
-  frenado: "",
+  frenado: "La salida fue frenada. Contactá al administrador si necesitás revisarlo.",
   cerrado: "",
 };
 
 export default function ChoferInicio() {
   const { operador } = useAuth();
-  const propios = useColeccion("partesDiarios").filter((p) => p.creadoPor === operador?.id);
-  const abierto = propios.find((p) => p.estado === "excepcion" || p.estado === "en_curso");
+  const { partes, loading, error } = usePartes();
+  const propios = partes.filter((p) => p.creadoPor === operador?.id);
+  const abierto = propios.find((p) => p.estado !== "cerrado" && p.estado !== "frenado");
   const anteriores = propios.filter((p) => p !== abierto);
   const cerrados = anteriores.filter((p) => p.estado === "cerrado");
   const pendientesFirma = cerrados.filter((p) => !p.firmadoEn);
   const nombre = operador?.nombre_completo.trim().split(/\s+/)[0] || "operador";
+
+  if (loading) return <p className="estado">Cargando tus partes…</p>;
+  if (error) return <p className="error" role="alert">{error}</p>;
 
   return (
     <div className="dashboard-page dashboard-driver">
@@ -28,7 +34,7 @@ export default function ChoferInicio() {
           <p>Tené a mano tus partes y accesos para empezar la jornada.</p>
         </div>
         <Link className="dashboard-button" to={abierto ? `/partes/${abierto.id}` : "/chofer/nuevo"}>
-          {abierto ? "Continuar parte" : "Iniciar parte"}
+          {abierto ? "Ver parte pendiente" : "Crear parte"}
           <span aria-hidden="true">→</span>
         </Link>
       </section>
@@ -44,7 +50,7 @@ export default function ChoferInicio() {
           <span className="dashboard-stat-icon" aria-hidden="true">◷</span>
           <span className="dashboard-stat-label">PARTE ABIERTO</span>
           <strong>{abierto ? "1" : "0"}</strong>
-          <span className="dashboard-stat-detail">{abierto ? "Requiere seguimiento" : "Listo para iniciar"}</span>
+          <span className="dashboard-stat-detail">{abierto ? "Requiere seguimiento" : "Listo para crear"}</span>
         </article>
         <article className="dashboard-stat">
           <span className="dashboard-stat-icon" aria-hidden="true">✓</span>
@@ -65,15 +71,15 @@ export default function ChoferInicio() {
         {abierto ? (
           <>
             <p className="parte-resumen">
-              <strong>Parte N° {abierto.id}</strong> · {abierto.vehiculo} · {abierto.tarea}
+              <strong>Parte N° {abierto.numero}</strong> · {abierto.vehiculo} · {abierto.tarea}
             </p>
             <p className="dashboard-supporting-text">{siguientePaso[abierto.estado]}</p>
             <div className="actions"><Link to={`/partes/${abierto.id}`} className="dashboard-text-link">Ver detalle del parte <span aria-hidden="true">→</span></Link></div>
           </>
         ) : (
           <>
-            <p className="dashboard-supporting-text">No tenés un parte abierto. Elegí vehículo y tarea para empezar.</p>
-            <div className="actions"><Link to="/chofer/nuevo" className="dashboard-text-link">Abrir parte diario <span aria-hidden="true">→</span></Link></div>
+            <p className="dashboard-supporting-text">No tenés un parte abierto. Podés registrar uno; quedará pendiente hasta completar el control documental.</p>
+            <div className="actions"><Link to="/chofer/nuevo" className="dashboard-text-link">Registrar parte <span aria-hidden="true">→</span></Link></div>
           </>
         )}
       </section>
