@@ -1,8 +1,11 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { useAuth } from "../../auth/AuthProvider";
 import { TablaPartes } from "../../components/partes/TablaPartes";
 import { ESTADOS_PARTE, contiene, useColeccion, type EstadoParte } from "../../lib/registros";
 
 export default function SupervisorPanel() {
+  const { operador } = useAuth();
   const partes = useColeccion("partesDiarios");
   const [estado, setEstado] = useState<EstadoParte | "">("");
   const [busqueda, setBusqueda] = useState("");
@@ -14,18 +17,51 @@ export default function SupervisorPanel() {
   const filtrados = partes.filter((p) =>
     (!estado || p.estado === estado) &&
     contiene(`${p.operador} ${p.vehiculo} ${p.cliente} ${p.origen} ${p.destino}`, busqueda));
+  const nombre = operador?.nombre_completo.trim().split(/\s+/)[0] || "equipo";
 
   return (
-    <>
-      <div className="stats">
-        <div className="stat stat-aviso"><span className="stat-label">EXCEPCIONES PENDIENTES</span><span className="stat-value">{excepciones.length}</span></div>
-        <div className="stat stat-info"><span className="stat-label">OPERACIONES EN CURSO</span><span className="stat-value">{enCurso}</span></div>
-        <div className="stat stat-total"><span className="stat-label">CERRADOS SIN FIRMA</span><span className="stat-value">{sinFirma.length}</span></div>
-        <div className="stat stat-ok"><span className="stat-label">FIRMADOS, LISTOS PARA FACTURAR</span><span className="stat-value">{firmados}</span></div>
-      </div>
+    <div className="dashboard-page dashboard-supervisor">
+      <section className="dashboard-hero">
+        <div className="dashboard-hero-copy">
+          <span className="dashboard-eyebrow">CENTRO DE OPERACIONES</span>
+          <h2>Buen día, {nombre}</h2>
+          <p>Revisá el estado de los partes y atendé las operaciones que necesitan seguimiento.</p>
+        </div>
+        <div className="dashboard-hero-actions">
+          <Link className="dashboard-button dashboard-button-secondary" to="/observaciones/nueva">Nueva observación <span aria-hidden="true">→</span></Link>
+          <Link className="dashboard-button" to="/gerenciamientos/nuevo">Nuevo gerenciamiento <span aria-hidden="true">↗</span></Link>
+        </div>
+      </section>
+
+      <section className="dashboard-stats" aria-label="Resumen de operaciones">
+        <article className="dashboard-stat dashboard-stat-warning">
+          <span className="dashboard-stat-icon" aria-hidden="true">!</span>
+          <span className="dashboard-stat-label">EXCEPCIONES PENDIENTES</span>
+          <strong>{excepciones.length}</strong>
+          <span className="dashboard-stat-detail">Requieren revisión</span>
+        </article>
+        <article className="dashboard-stat dashboard-stat-blue">
+          <span className="dashboard-stat-icon" aria-hidden="true">◷</span>
+          <span className="dashboard-stat-label">OPERACIONES EN CURSO</span>
+          <strong>{enCurso}</strong>
+          <span className="dashboard-stat-detail">Partes activos</span>
+        </article>
+        <article className="dashboard-stat dashboard-stat-neutral">
+          <span className="dashboard-stat-icon" aria-hidden="true">✎</span>
+          <span className="dashboard-stat-label">CERRADOS SIN FIRMA</span>
+          <strong>{sinFirma.length}</strong>
+          <span className="dashboard-stat-detail">Esperan completar firma</span>
+        </article>
+        <article className="dashboard-stat dashboard-stat-success">
+          <span className="dashboard-stat-icon" aria-hidden="true">✓</span>
+          <span className="dashboard-stat-label">FIRMADOS</span>
+          <strong>{firmados}</strong>
+          <span className="dashboard-stat-detail">Listos para facturar</span>
+        </article>
+      </section>
 
       {excepciones.length > 0 && (
-        <section className="panel">
+        <section className="panel dashboard-priority">
           <h2 className="panel-header">Pedidos de salida excepcional</h2>
           <div className="panel-body">
             <p className="ayuda">Unidades con documentación vencida. Solo un administrador puede autorizar o frenar la salida.</p>
@@ -60,6 +96,6 @@ export default function SupervisorPanel() {
             : <><TablaPartes partes={filtrados} mostrarOperador /><p className="resultados">Cantidad de resultados: {filtrados.length}</p></>}
         </div>
       </section>
-    </>
+    </div>
   );
 }

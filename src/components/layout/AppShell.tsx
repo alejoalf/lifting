@@ -139,6 +139,7 @@ export function AppShell() {
   const title = pageTitles[location.pathname]
     ?? (location.pathname.includes("/informe/") ? "Informe del parte"
       : location.pathname.startsWith("/partes/") ? "Parte diario" : "Lifting Patagonia");
+  const esInicio = ["/chofer", "/supervisor", "/admin"].includes(location.pathname);
   const groups = navigation
     .map((group) => ({
       ...group,
@@ -201,7 +202,7 @@ export function AppShell() {
         </div>
       </aside>
 
-      <div className="workspace">
+      <div className={`workspace${esInicio ? " workspace-dashboard" : ""}`}>
         <header className="workspace-header">
           <button
             ref={mobileMenuButton}
