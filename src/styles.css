@@ -101,10 +101,17 @@ button { font: 600 1.05rem "Barlow", sans-serif; cursor: pointer; }
 .login-submit:disabled { cursor: wait; opacity: .75; }
 .login-submit:focus-visible, .password-toggle:focus-visible { outline: 3px solid #e3b700; outline-offset: 3px; }
 .login-submit-arrow { font-size: 1.25rem; line-height: 1; }
-.login-register-note { display: flex; align-items: flex-start; gap: .9rem; margin-top: 2rem; padding: 1rem; border: 1px solid #e5e9e6; border-radius: 9px; background: rgb(255 255 255 / 65%); }
-.login-register-icon { display: grid; width: 1.65rem; height: 1.65rem; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #087c49; background: #e6f3eb; font-size: 1.15rem; line-height: 1; }
-.login-register-note p { margin: 0; color: #788487; font-size: .84rem; line-height: 1.55; }
-.login-register-note strong { color: #3d4a4e; font-weight: 600; }
+.login-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: .25rem; margin-bottom: 2.25rem; padding: .25rem; border: 1px solid #e4e9e6; border-radius: 10px; background: #eef1ef; }
+.login-tabs button { min-height: 2.7rem; border: 0; border-radius: 7px; color: #71807a; background: transparent; font-size: .88rem; font-weight: 600; }
+.login-tabs button.is-active { color: #17613d; background: #fff; box-shadow: 0 1px 4px rgb(22 46 33 / 12%); }
+.login-tabs button:focus-visible { outline: 3px solid #e3b700; outline-offset: 2px; }
+.login-select-wrap { margin-bottom: .35rem; }
+.login-page .login-input-wrap select { width: 100%; min-height: 3.4rem; margin: 0; padding: .65rem .85rem; border: 0; outline: 0; color: #1a2024; background: transparent; font: 400 .96rem "Barlow", system-ui, sans-serif; }
+.login-role-help { margin: -.1rem 0 1rem; color: #7d8988; font-size: .77rem; line-height: 1.45; }
+.login-complete { display: grid; justify-items: center; gap: 1rem; text-align: center; }
+.login-complete-icon { display: grid; width: 3.5rem; height: 3.5rem; place-items: center; border-radius: 50%; color: #087c49; background: #e6f3eb; font-size: 1.7rem; font-weight: 600; }
+.login-complete .login-notice { margin: 0; }
+.login-complete .login-submit { margin-top: .5rem; }
 .login-privacy { display: flex; align-items: center; justify-content: center; gap: .45rem; margin: 1.5rem 0 0; color: #8a9698; font-size: .78rem; }
 .login-privacy svg { width: 1rem; height: 1rem; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; }
 .login-footer { margin-top: 2.5rem; color: #98a1a1; font-size: .73rem; text-align: center; }

@@ -31,6 +31,11 @@ su marca, textos ni diseño exacto.
 - El login consulta `operadores` por `auth_user_id` y lee `nombre` y `rol`.
 - Roles reconocidos: `chofer`, `hidrogrulero`, `supervisor` y `admin`
   (también se aceptan con mayúsculas).
+- El registro crea una cuenta de Authentication y una solicitud pendiente; el
+  rol elegido es solo una preferencia. Un administrador confirma el correo,
+  asigna el rol efectivo y vincula o crea el operador desde Usuarios y roles.
+- Para habilitar este flujo en Supabase, aplicar
+  `supabase/migrations/20261113160000_registro_con_aprobacion.sql`.
 - Ya existen rutas protegidas de chofer, supervisor y administrador.
 - Las pantallas principales todavía son placeholders. En particular, el
   formulario de nuevo parte no guarda datos y muestra un estado documental
