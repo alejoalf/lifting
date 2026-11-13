@@ -11,6 +11,9 @@ import HistoricoGerenciamientos from "./pages/gerenciamientos/Historico";
 import DetalleParte from "./pages/partes/Detalle";
 import InformeParte from "./pages/partes/Informe";
 import Vehiculo from "./pages/admin/Flota";
+import Clientes, { FichaCliente } from "./pages/admin/Clientes";
+import Contratos, { FichaContrato } from "./pages/admin/Contratos";
+import Certificaciones, { FichaCertificacion } from "./pages/admin/Certificaciones";
 import Usuarios from "./pages/admin/Usuarios";
 import DatosAdmin from "./pages/admin/Datos";
 import Legajo from "./pages/Legajo";
@@ -34,6 +37,12 @@ export default function App() {
         <Route path="/gerenciamientos" element={<HistoricoGerenciamientos />} />
         <Route path="/gerenciamientos/nuevo" element={<NuevoGerenciamiento />} />
         <Route path="/admin/flota/:vehiculoId" element={<RequireRole roles={["admin"]}><Vehiculo /></RequireRole>} />
+        <Route path="/admin/clientes" element={<RequireRole roles={["admin"]}><Clientes /></RequireRole>} />
+        <Route path="/admin/clientes/:clienteId" element={<RequireRole roles={["admin"]}><FichaCliente /></RequireRole>} />
+        <Route path="/admin/contratos" element={<RequireRole roles={["admin"]}><Contratos /></RequireRole>} />
+        <Route path="/admin/contratos/:contratoId" element={<RequireRole roles={["admin"]}><FichaContrato /></RequireRole>} />
+        <Route path="/admin/certificaciones" element={<RequireRole roles={["admin"]}><Certificaciones /></RequireRole>} />
+        <Route path="/admin/certificaciones/:certificacionId" element={<RequireRole roles={["admin"]}><FichaCertificacion /></RequireRole>} />
         <Route path="/admin/usuarios" element={<RequireRole roles={["admin"]}><Usuarios /></RequireRole>} />
         <Route path="/admin/datos/:seccion" element={<RequireRole roles={["admin"]}><DatosAdmin /></RequireRole>} />
         <Route path="/legajo" element={<Legajo />} />

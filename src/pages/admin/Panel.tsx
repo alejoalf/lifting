@@ -28,9 +28,9 @@ export default function AdminPanel() {
           <span><strong>Usuarios y roles</strong><small>Administrá accesos y solicitudes</small></span>
           <span className="dashboard-shortcut-arrow" aria-hidden="true">↗</span>
         </Link>
-        <Link className="dashboard-shortcut" to="/admin/datos/clientes">
+        <Link className="dashboard-shortcut" to="/admin/clientes">
           <span className="dashboard-shortcut-icon" aria-hidden="true">03</span>
-          <span><strong>Datos maestros</strong><small>Clientes, contratos y más</small></span>
+          <span><strong>Clientes</strong><small>Facturación, contratos e historial</small></span>
           <span className="dashboard-shortcut-arrow" aria-hidden="true">↗</span>
         </Link>
       </nav>

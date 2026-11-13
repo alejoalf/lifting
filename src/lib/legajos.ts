@@ -164,7 +164,7 @@ export function nombreActividad(actividad: Actividad) {
   return actividad.cliente ? `${actividad.nombre} · ${actividad.cliente}` : actividad.nombre;
 }
 
-export type Bucket = "legajos" | "flota";
+export type Bucket = "legajos" | "flota" | "certificados";
 
 /** Sube el archivo al bucket privado, dentro de la carpeta indicada, y devuelve su ruta. */
 export async function subirArchivo(carpeta: string, archivo: File, bucket: Bucket = "legajos") {

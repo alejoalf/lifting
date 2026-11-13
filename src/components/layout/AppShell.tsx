@@ -28,9 +28,9 @@ const navigation: { caption: string; items: NavigationItem[] }[] = [
       { label: "Flota", to: "/admin", icon: "F", roles: ["admin"] },
       { label: "Requisitos por actividad", to: "/admin/legajos/requisitos", icon: "R", roles: ["admin"] },
       { label: "Usuarios y roles", to: "/admin/usuarios", icon: "U", roles: ["admin"] },
-      { label: "Clientes", to: "/admin/datos/clientes", icon: "C", roles: ["admin"] },
-      { label: "Contratos", to: "/admin/datos/contratos", icon: "K", roles: ["admin"] },
-      { label: "Certificaciones", to: "/admin/datos/certificaciones", icon: "M", roles: ["admin"] },
+      { label: "Clientes", to: "/admin/clientes", icon: "C", roles: ["admin"] },
+      { label: "Contratos", to: "/admin/contratos", icon: "K", roles: ["admin"] },
+      { label: "Certificaciones", to: "/admin/certificaciones", icon: "M", roles: ["admin"] },
       { label: "Caja y gastos", to: "/admin/datos/caja", icon: "$", roles: ["admin"] },
       { label: "Proveedores", to: "/admin/datos/proveedores", icon: "V", roles: ["admin"] },
     ],
@@ -59,9 +59,12 @@ const pageTitles: Record<string, string> = {
   "/admin": "Flota",
   "/admin/flota/nuevo": "Nuevo vehículo",
   "/admin/usuarios": "Usuarios y roles",
-  "/admin/datos/clientes": "Clientes",
-  "/admin/datos/contratos": "Contratos y acuerdos",
-  "/admin/datos/certificaciones": "Certificaciones mensuales",
+  "/admin/clientes": "Clientes",
+  "/admin/clientes/nuevo": "Nuevo cliente",
+  "/admin/contratos": "Contratos y acuerdos",
+  "/admin/contratos/nuevo": "Nuevo contrato",
+  "/admin/certificaciones": "Certificaciones",
+  "/admin/certificaciones/nueva": "Nueva certificación",
   "/admin/datos/caja": "Caja y gastos",
   "/admin/datos/proveedores": "Proveedores",
   "/legajo": "Mi legajo",
@@ -143,7 +146,10 @@ export function AppShell() {
     ?? (location.pathname.includes("/informe/") ? "Informe del parte"
       : location.pathname.startsWith("/partes/") ? "Parte diario"
         : location.pathname.startsWith("/admin/legajos/") ? "Legajo del operador"
-          : location.pathname.startsWith("/admin/flota/") ? "Vehículo" : "Lifting Patagonia");
+          : location.pathname.startsWith("/admin/flota/") ? "Vehículo"
+            : location.pathname.startsWith("/admin/clientes/") ? "Cliente"
+              : location.pathname.startsWith("/admin/contratos/") ? "Contrato"
+                : location.pathname.startsWith("/admin/certificaciones/") ? "Certificación mensual" : "Lifting Patagonia");
   const esInicio = ["/chofer", "/supervisor", "/admin"].includes(location.pathname);
   const groups = navigation
     .map((group) => ({
