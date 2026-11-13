@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function cargarOperador() {
       const { data, error } = await supabase
         .from("operadores")
-        .select("auth_user_id, nombre, rol")
+        .select("id, auth_user_id, nombre, rol")
         .eq("auth_user_id", authUserId)
         .maybeSingle();
 
@@ -73,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setOperador({
             id: data.auth_user_id,
+            operadorId: data.id,
             nombre_completo: data.nombre,
             rol,
           });

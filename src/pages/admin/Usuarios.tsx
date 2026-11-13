@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthProvider";
 import { getSupabase, type Rol } from "../../lib/supabase";
-import { contiene, documentosDe, peorSemaforo, useColeccion } from "../../lib/registros";
-import { EstadoDocumental } from "../Legajo";
+import { Link } from "react-router-dom";
+import { contiene } from "../../lib/registros";
 
 interface Usuario {
   id: string | number;
@@ -33,7 +33,6 @@ const ROLES: { valor: Rol; label: string }[] = [
 
 export default function Usuarios() {
   const { operador } = useAuth();
-  const documentos = useColeccion("documentos");
   const [usuarios, setUsuarios] = useState<Usuario[] | null>(null);
   const [solicitudes, setSolicitudes] = useState<SolicitudRegistro[] | null>(null);
   const [rolesSolicitados, setRolesSolicitados] = useState<Record<string, Rol>>({});
@@ -230,12 +229,11 @@ export default function Usuarios() {
           <div className="table-wrap">
             <table className="tabla tabla-izquierda">
               <thead>
-                <tr><th>Nombre</th><th>CUIL</th><th>Email</th><th>Teléfono</th><th>Rol</th><th>Activo</th><th>Estado documental</th></tr>
+                <tr><th>Nombre</th><th>CUIL</th><th>Email</th><th>Teléfono</th><th>Rol</th><th>Activo</th><th>Legajo</th></tr>
               </thead>
               <tbody>
                 {visibles.map((u) => {
                   const esUnoMismo = u.auth_user_id === operador?.id;
-                  const estado = u.auth_user_id ? peorSemaforo(documentosDe(documentos, "operador", u.auth_user_id)) : null;
                   return (
                     <tr key={u.id}>
                       <td>{u.nombre}</td>
@@ -255,7 +253,7 @@ export default function Usuarios() {
                         </select>
                       </td>
                       <td>{u.activo === null ? "—" : u.activo ? "Sí" : "No"}</td>
-                      <td><EstadoDocumental estado={estado} /></td>
+                      <td><Link to={`/admin/legajos/${u.id}`}>Ver legajo</Link></td>
                     </tr>
                   );
                 })}

@@ -14,6 +14,8 @@ import DocumentosFlota from "./pages/admin/Documentos";
 import Usuarios from "./pages/admin/Usuarios";
 import DatosAdmin from "./pages/admin/Datos";
 import Legajo from "./pages/Legajo";
+import Legajos, { LegajoDetalle } from "./pages/admin/Legajos";
+import Requisitos from "./pages/admin/Requisitos";
 import HistoricoChecklist from "./pages/checklist/Historico";
 import NuevaObservacion from "./pages/observaciones/Nueva";
 import HistoricoObservaciones from "./pages/observaciones/Historico";
@@ -35,6 +37,9 @@ export default function App() {
         <Route path="/admin/usuarios" element={<RequireRole roles={["admin"]}><Usuarios /></RequireRole>} />
         <Route path="/admin/datos/:seccion" element={<RequireRole roles={["admin"]}><DatosAdmin /></RequireRole>} />
         <Route path="/legajo" element={<Legajo />} />
+        <Route path="/admin/legajos" element={<RequireRole roles={["supervisor", "admin"]}><Legajos /></RequireRole>} />
+        <Route path="/admin/legajos/requisitos" element={<RequireRole roles={["admin"]}><Requisitos /></RequireRole>} />
+        <Route path="/admin/legajos/:operadorId" element={<RequireRole roles={["supervisor", "admin"]}><LegajoDetalle /></RequireRole>} />
         <Route path="/partes/:id" element={<DetalleParte />} />
         <Route path="/partes/:id/informe/:perfil" element={<InformeParte />} />
         <Route path="/checklist" element={<HistoricoChecklist />} />

@@ -19,6 +19,7 @@ const navigation: { caption: string; items: NavigationItem[] }[] = [
       { label: "Nuevo parte", to: "/chofer/nuevo", icon: "+", roles: ["chofer", "hidrogrulero"] },
       { label: "Partes", to: "/supervisor", icon: "P", roles: ["supervisor", "admin"] },
       { label: "Mi legajo", to: "/legajo", icon: "L" },
+      { label: "Legajos del personal", to: "/admin/legajos", icon: "H", roles: ["supervisor", "admin"] },
     ],
   },
   {
@@ -26,6 +27,7 @@ const navigation: { caption: string; items: NavigationItem[] }[] = [
     items: [
       { label: "Flota", to: "/admin", icon: "F", roles: ["admin"] },
       { label: "Documentos de flota", to: "/admin/documentos", icon: "D", roles: ["admin"] },
+      { label: "Requisitos por actividad", to: "/admin/legajos/requisitos", icon: "R", roles: ["admin"] },
       { label: "Usuarios y roles", to: "/admin/usuarios", icon: "U", roles: ["admin"] },
       { label: "Clientes", to: "/admin/datos/clientes", icon: "C", roles: ["admin"] },
       { label: "Contratos", to: "/admin/datos/contratos", icon: "K", roles: ["admin"] },
@@ -64,6 +66,8 @@ const pageTitles: Record<string, string> = {
   "/admin/datos/caja": "Caja y gastos",
   "/admin/datos/proveedores": "Proveedores",
   "/legajo": "Mi legajo",
+  "/admin/legajos": "Legajos del personal",
+  "/admin/legajos/requisitos": "Requisitos por actividad",
   "/gerenciamientos": "Gerenciamientos de viaje",
   "/gerenciamientos/nuevo": "Nuevo gerenciamiento",
   "/checklist": "Constancia checklist vehicular",
@@ -73,7 +77,7 @@ const pageTitles: Record<string, string> = {
 };
 
 // Pantallas que por ahora guardan sus datos en el navegador. El resto lee de Supabase.
-const rutasConDatosLocales = /^\/(legajo|admin\/documentos|gerenciamientos|checklist|observaciones|notificaciones)/;
+const rutasConDatosLocales = /^\/(admin\/documentos|gerenciamientos|checklist|observaciones|notificaciones)/;
 
 function formatRole(rol: Rol) {
   return rol === "admin" ? "Administrador" : rol === "hidrogrulero" ? "Hidrogrúa" : rol[0].toUpperCase() + rol.slice(1);
@@ -138,7 +142,8 @@ export function AppShell() {
 
   const title = pageTitles[location.pathname]
     ?? (location.pathname.includes("/informe/") ? "Informe del parte"
-      : location.pathname.startsWith("/partes/") ? "Parte diario" : "Lifting Patagonia");
+      : location.pathname.startsWith("/partes/") ? "Parte diario"
+        : location.pathname.startsWith("/admin/legajos/") ? "Legajo del operador" : "Lifting Patagonia");
   const esInicio = ["/chofer", "/supervisor", "/admin"].includes(location.pathname);
   const groups = navigation
     .map((group) => ({

@@ -35,6 +35,8 @@ export type Rol = "chofer" | "hidrogrulero" | "supervisor" | "admin";
 // Ajustar al esquema real de la Tabla 7 cuando esté lista.
 export interface Operador {
   id: string; // = auth.users.id
+  /** operadores.id: la clave con la que se guarda el legajo. */
+  operadorId: string;
   nombre_completo: string;
   rol: Rol;
 }

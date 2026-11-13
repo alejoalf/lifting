@@ -269,7 +269,9 @@ label small { color: var(--muted); font-weight: 400; }
 .busqueda-titulo h3 { margin: 0 0 .2rem; color: var(--sidebar-borde); font-size: 1.15rem; }
 .busqueda-titulo p { margin: 0; font-size: .92rem; }
 .tabla-izquierda { text-align: left; }
-.chip.sin-datos { background: var(--muted); }
+.chip.sin-datos, .chip.falta { background: var(--muted); }
+.chip.en-revision { background: var(--header-borde); }
+.lista-requisitos { display: grid; gap: .35rem; margin: 0; padding: 0; list-style: none; }
 .chip.estado-excepcion { background: var(--aviso); }
 .chip.estado-frenado { background: var(--alto); }
 .exito { color: var(--ok); font-weight: 500; }
