@@ -1,17 +1,19 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { agregar, hoy } from "../../lib/registros";
+import { hoy } from "../../lib/registros";
+import { crearGerenciamiento } from "../../lib/operaciones";
 
 export default function NuevoGerenciamiento() {
   const { operador } = useAuth();
   const navigate = useNavigate();
   const [segundoConductor, setSegundoConductor] = useState(false);
   const [error, setError] = useState("");
+  const [guardando, setGuardando] = useState(false);
 
-  function enviar(event: FormEvent<HTMLFormElement>) {
+  async function enviar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!operador) return;
+    if (!operador || guardando) return;
     const datos = new FormData(event.currentTarget);
     const texto = (campo: string) => String(datos.get(campo) ?? "").trim();
 
@@ -22,31 +24,32 @@ export default function NuevoGerenciamiento() {
       return;
     }
 
-    agregar("gerenciamientos", {
-      creadoPor: operador.id,
-      creadoPorNombre: operador.nombre_completo,
-      creadoEn: new Date().toISOString(),
-      fechaSalida: texto("fechaSalida"),
-      horaSalida: texto("horaSalida"),
-      fechaLlegada: texto("fechaLlegada"),
-      horaLlegada: texto("horaLlegada"),
-      vehiculo: texto("vehiculo"),
-      conductor: texto("conductor"),
-      conductor2: segundoConductor ? texto("conductor2") : "",
-      origen: texto("origen"),
-      destino: texto("destino"),
-      distanciaKm: Number(texto("distanciaKm")),
-      telefono: texto("telefono"),
-      linea: texto("linea"),
-      radioactivo: datos.has("radioactivo"),
-      pasajeros: datos.has("pasajeros"),
-      motivo: texto("motivo"),
-      rutas: texto("rutas"),
-      autorizacion: "pendiente",
-      responsable: "",
-      estado: "abierto",
-    });
-    navigate("/gerenciamientos");
+    setError("");
+    setGuardando(true);
+    try {
+      await crearGerenciamiento({
+        fechaSalida: texto("fechaSalida"),
+        horaSalida: texto("horaSalida"),
+        fechaLlegada: texto("fechaLlegada"),
+        horaLlegada: texto("horaLlegada"),
+        vehiculo: texto("vehiculo"),
+        conductor: texto("conductor"),
+        conductor2: segundoConductor ? texto("conductor2") : "",
+        origen: texto("origen"),
+        destino: texto("destino"),
+        distanciaKm: Number(texto("distanciaKm")),
+        telefono: texto("telefono"),
+        linea: texto("linea"),
+        radioactivo: datos.has("radioactivo"),
+        pasajeros: datos.has("pasajeros"),
+        motivo: texto("motivo"),
+        rutas: texto("rutas"),
+      });
+      navigate("/gerenciamientos");
+    } catch (fallo) {
+      setError(fallo instanceof Error ? fallo.message : "No se pudo guardar el gerenciamiento.");
+      setGuardando(false);
+    }
   }
 
   return (
@@ -103,7 +106,7 @@ export default function NuevoGerenciamiento() {
 
         {error && <p className="error" role="alert">{error}</p>}
         <div className="actions">
-          <button type="submit" className="primary inline">Guardar gerenciamiento</button>
+          <button type="submit" className="primary inline" disabled={guardando}>{guardando ? "Guardando…" : "Guardar gerenciamiento"}</button>
         </div>
       </div>
     </form>

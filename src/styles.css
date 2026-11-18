@@ -505,6 +505,45 @@ label small { color: var(--muted); font-weight: 400; }
   .sidebar-collapsed .sidebar-nav > div + div { margin-top: 0; padding-top: 0; border-top: 0; }
 }
 
+/* ---- Caja y gastos ---- */
+.stat-alto { border-left-color: var(--alto); }
+.stat-detalle { color: var(--muted); font-size: .78rem; }
+.stats-caja .stat-value { overflow-wrap: anywhere; font-size: clamp(1.3rem, 2.4vw, 1.75rem); }
+.caja-periodo { margin: 0 0 .6rem; color: var(--muted); }
+.caja-periodo strong { color: var(--tinta); text-transform: capitalize; }
+.panel-header-titulo { margin: 0; font: inherit; }
+.monto { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tabla .celda-monto { text-align: right; }
+.vinculos { display: grid; gap: .15rem; font-size: .9rem; }
+.participacion { display: grid; gap: .3rem; min-width: 10rem; font-size: .85rem; }
+.barra { display: block; height: .45rem; overflow: hidden; border-radius: 999px; background: var(--ripio); }
+.barra > span { display: block; height: 100%; border-radius: inherit; }
+.barra-ingreso { background: var(--ok); }
+.barra-egreso { background: var(--alto); }
+.segmento { min-width: 0; margin: 0 0 1rem; padding: 0; border: 0; }
+.segmento legend { margin-bottom: .25rem; padding: 0; font-weight: 500; }
+.segmento-opciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .25rem; padding: .25rem; border-radius: 8px; background: var(--ripio); }
+.segmento-opcion { position: relative; display: flex; min-height: 2.75rem; align-items: center; justify-content: center; margin: 0; border-radius: 6px; color: var(--muted); cursor: pointer; font-weight: 600; transition: background .16s ease, color .16s ease; }
+.segmento-opcion input { position: absolute; width: 1px; height: 1px; min-height: 0; margin: 0; padding: 0; opacity: 0; }
+.segmento-opcion:focus-within { outline: 3px solid var(--hi-vis); outline-offset: 1px; }
+.segmento-opcion.is-active { color: var(--tinta); background: var(--surface); box-shadow: 0 1px 4px rgb(0 0 0 / 12%); }
+.segmento-opcion.segmento-ingreso.is-active { color: #fff; background: var(--ok); }
+.segmento-opcion.segmento-egreso.is-active { color: #fff; background: var(--alto); }
+
+/* ---- Checklist vehicular ---- */
+.segmento-opciones.tres { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.segmento-opcion.segmento-bien.is-active { color: #fff; background: var(--ok); }
+.segmento-opcion.segmento-mal.is-active { color: #fff; background: var(--alto); }
+.checklist-items { display: grid; gap: .25rem; margin: 0 0 1rem; padding: 0; list-style: none; }
+.checklist-items li { padding: .6rem .75rem 0; border: 1px solid var(--line); border-radius: 8px; }
+.checklist-items li.checklist-falla { border-color: var(--alto); background: color-mix(in srgb, var(--alto) 6%, var(--surface)); }
+.checklist-items .segmento { margin-bottom: .6rem; }
+.checklist-items .segmento legend { font-size: .95rem; }
+.checklist-resultado { display: grid; margin: 0; padding: 0; list-style: none; }
+.checklist-resultado li { display: flex; justify-content: space-between; gap: 1rem; padding: .55rem 0; border-bottom: 1px solid var(--line); }
+.checklist-resultado li:last-child { border-bottom: 0; }
+.checklist-subtitulo { margin: 1.25rem 0 .35rem; font-size: 1rem; }
+
 /* ---- Adaptación a teléfonos ---- */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 img { max-width: 100%; }
@@ -590,6 +629,10 @@ img { max-width: 100%; }
   .fila-toggle-texto strong { font-size: 1.02rem; }
   .fila-toggle-texto small { overflow: hidden; color: var(--muted); font-size: .82rem; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
   .fila-toggle .chip { flex: 0 0 auto; font-size: .75rem; }
+  .fila-toggle .monto { flex: 0 0 auto; font-size: .92rem; }
+  .tabla .celda-monto { text-align: left; }
+  .participacion { min-width: 0; }
+  .stats-caja .stat-value { font-size: 1.2rem; }
   .fila-toggle-flecha { flex: 0 0 auto; color: var(--muted); font-size: 1.1rem; transition: transform .16s ease; }
   .fila-toggle[aria-expanded="true"] .fila-toggle-flecha { transform: rotate(180deg); }
   .solo-escritorio { display: none !important; }

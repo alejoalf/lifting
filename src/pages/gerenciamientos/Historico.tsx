@@ -1,16 +1,22 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { actualizar, notificar, contiene, formatFecha, hoy, useColeccion, type Gerenciamiento } from "../../lib/registros";
+import { contiene, formatFecha, hoy } from "../../lib/registros";
+import { autorizarGerenciamiento, cerrarGerenciamiento, useGerenciamientos, type Gerenciamiento } from "../../lib/operaciones";
 
 const filtrosVacios = { id: "", conductor: "", destino: "", autorizacion: "", estado: "", desde: "", hasta: "" };
 
 export default function HistoricoGerenciamientos() {
   const { operador } = useAuth();
-  const gerenciamientos = useColeccion("gerenciamientos");
+  const { filas: cargados, error: errorCarga, refresh } = useGerenciamientos();
   const [busquedaAbierta, setBusquedaAbierta] = useState(false);
   const [filtros, setFiltros] = useState(filtrosVacios);
+  const [ocupado, setOcupado] = useState<number | null>(null);
+  const [error, setError] = useState("");
   const puedeAutorizar = operador?.rol === "supervisor" || operador?.rol === "admin";
+
+  if (!cargados) return errorCarga ? <p className="error" role="alert">{errorCarga}</p> : <p className="estado">Cargando gerenciamientos…</p>;
+  const gerenciamientos = cargados;
 
   const mesActual = hoy().slice(0, 7);
   const delMes = gerenciamientos.filter((g) => g.fechaSalida.startsWith(mesActual));
@@ -31,10 +37,17 @@ export default function HistoricoGerenciamientos() {
     onChange: (e: { target: { value: string } }) => setFiltros({ ...filtros, [campo]: e.target.value }),
   });
 
-  function autorizar(g: Gerenciamiento) {
-    if (!operador) return;
-    actualizar("gerenciamientos", g.id, { autorizacion: "autorizado", responsable: operador.nombre_completo });
-    notificar(g.creadoPor, `Gerenciamiento #${g.id} aprobado`, `${operador.nombre_completo} ha aprobado el gerenciamiento #${g.id}`, "/gerenciamientos");
+  async function ejecutar(g: Gerenciamiento, accion: (id: number) => Promise<void>) {
+    setError("");
+    setOcupado(g.id);
+    try {
+      await accion(g.id);
+      await refresh();
+    } catch (fallo) {
+      setError(fallo instanceof Error ? fallo.message : "No se pudo actualizar el gerenciamiento.");
+    } finally {
+      setOcupado(null);
+    }
   }
 
   return (
@@ -87,6 +100,7 @@ export default function HistoricoGerenciamientos() {
             )}
           </div>
 
+          {error && <p className="error" role="alert">{error}</p>}
           {gerenciamientos.length === 0 ? (
             <p className="vacio">Todavía no hay gerenciamientos cargados. <Link to="/gerenciamientos/nuevo">Crear gerenciamiento</Link></p>
           ) : (
@@ -101,7 +115,7 @@ export default function HistoricoGerenciamientos() {
                   </thead>
                   <tbody>
                     {filas.map((g) => {
-                      const puedeCerrar = g.estado === "abierto" && g.autorizacion === "autorizado" && (puedeAutorizar || g.creadoPor === operador?.id);
+                      const puedeCerrar = g.estado === "abierto" && g.autorizacion === "autorizado" && (puedeAutorizar || g.creadoPor === operador?.operadorId);
                       return (
                         <tr key={g.id}>
                           <td>{g.id}</td>
@@ -114,8 +128,13 @@ export default function HistoricoGerenciamientos() {
                           <td className={g.autorizacion === "autorizado" ? "texto-ok" : "texto-aviso"}>{g.autorizacion === "autorizado" ? "Autorizado" : "Pendiente"}</td>
                           <td className={g.estado === "cerrado" ? "texto-alto" : "texto-ok"}>{g.estado === "cerrado" ? "Cerrado" : "Abierto"}</td>
                           <td>
-                            {puedeAutorizar && g.autorizacion === "pendiente" && <button type="button" className="secondary" onClick={() => autorizar(g)}>Autorizar</button>}
-                            {puedeCerrar && <button type="button" className="secondary" onClick={() => actualizar("gerenciamientos", g.id, { estado: "cerrado" })}>Cerrar</button>}
+                            {puedeAutorizar && g.autorizacion === "pendiente" && (
+                              <button type="button" className="secondary" disabled={ocupado === g.id} onClick={() => void ejecutar(g, autorizarGerenciamiento)}>Autorizar</button>
+                            )}
+                            {puedeCerrar && (
+                              <button type="button" className="secondary" disabled={ocupado === g.id} onClick={() => void ejecutar(g, cerrarGerenciamiento)}>Cerrar</button>
+                            )}
+                            {!(puedeAutorizar && g.autorizacion === "pendiente") && !puedeCerrar && "—"}
                           </td>
                         </tr>
                       );

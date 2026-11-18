@@ -31,7 +31,7 @@ const navigation: { caption: string; items: NavigationItem[] }[] = [
       { label: "Clientes", to: "/admin/clientes", icon: "C", roles: ["admin"] },
       { label: "Contratos", to: "/admin/contratos", icon: "K", roles: ["admin"] },
       { label: "Certificaciones", to: "/admin/certificaciones", icon: "M", roles: ["admin"] },
-      { label: "Caja y gastos", to: "/admin/datos/caja", icon: "$", roles: ["admin"] },
+      { label: "Caja y gastos", to: "/admin/caja", icon: "$", roles: ["admin"] },
       { label: "Proveedores", to: "/admin/datos/proveedores", icon: "V", roles: ["admin"] },
     ],
   },
@@ -40,6 +40,7 @@ const navigation: { caption: string; items: NavigationItem[] }[] = [
     items: [
       { label: "Crear gerenciamiento", to: "/gerenciamientos/nuevo", icon: "+" },
       { label: "Gerenciamientos", to: "/gerenciamientos", icon: "G" },
+      { label: "Nuevo checklist", to: "/checklist/nuevo", icon: "+" },
       { label: "Checklist vehicular", to: "/checklist", icon: "C" },
     ],
   },
@@ -65,7 +66,8 @@ const pageTitles: Record<string, string> = {
   "/admin/contratos/nuevo": "Nuevo contrato",
   "/admin/certificaciones": "Certificaciones",
   "/admin/certificaciones/nueva": "Nueva certificación",
-  "/admin/datos/caja": "Caja y gastos",
+  "/admin/caja": "Caja y gastos",
+  "/admin/caja/nuevo": "Nuevo movimiento",
   "/admin/datos/proveedores": "Proveedores",
   "/legajo": "Mi legajo",
   "/admin/legajos": "Legajos del personal",
@@ -73,13 +75,11 @@ const pageTitles: Record<string, string> = {
   "/gerenciamientos": "Gerenciamientos de viaje",
   "/gerenciamientos/nuevo": "Nuevo gerenciamiento",
   "/checklist": "Constancia checklist vehicular",
+  "/checklist/nuevo": "Nuevo checklist vehicular",
   "/observaciones": "Tarjetas de observaciones",
   "/observaciones/nueva": "Tarjeta de observación",
   "/notificaciones": "Historial de notificaciones",
 };
-
-// Pantallas que por ahora guardan sus datos en el navegador. El resto lee de Supabase.
-const rutasConDatosLocales = /^\/(gerenciamientos|checklist|observaciones|notificaciones)/;
 
 function formatRole(rol: Rol) {
   return rol === "admin" ? "Administrador" : rol === "hidrogrulero" ? "Hidrogrúa" : rol[0].toUpperCase() + rol.slice(1);
@@ -147,6 +147,8 @@ export function AppShell() {
       : location.pathname.startsWith("/partes/") ? "Parte diario"
         : location.pathname.startsWith("/admin/legajos/") ? "Legajo del operador"
           : location.pathname.startsWith("/admin/flota/") ? "Vehículo"
+            : location.pathname.startsWith("/admin/caja/") ? "Movimiento de caja"
+            : location.pathname.startsWith("/checklist/") ? "Checklist vehicular"
             : location.pathname.startsWith("/admin/clientes/") ? "Cliente"
               : location.pathname.startsWith("/admin/contratos/") ? "Contrato"
                 : location.pathname.startsWith("/admin/certificaciones/") ? "Certificación mensual" : "Lifting Patagonia");
@@ -258,11 +260,6 @@ export function AppShell() {
             <p className="page-kicker">OPERACIONES</p>
             <h1 ref={pageHeading} tabIndex={-1}>{title}</h1>
           </div>
-          {rutasConDatosLocales.test(location.pathname) && (
-            <p className="aviso-local" role="note">
-              Versión de prueba: lo que cargues en esta pantalla se guarda solo en este navegador, todavía no en la base de datos.
-            </p>
-          )}
           <Outlet />
         </main>
       </div>

@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useAuth } from "../../auth/AuthProvider";
-import { actualizar, esPara, useColeccion } from "../../lib/registros";
+import { marcarLeida, useNotificaciones } from "../../lib/notificaciones";
 
 export function NotificationBell() {
-  const { operador } = useAuth();
   const location = useLocation();
   const [abierto, setAbierto] = useState(false);
   const contenedor = useRef<HTMLDivElement>(null);
-  const propias = useColeccion("notificaciones").filter((n) => esPara(n, operador));
+  const propias = useNotificaciones(location.pathname);
   const sinLeer = propias.filter((n) => !n.leida).length;
 
   useEffect(() => setAbierto(false), [location.pathname]);
@@ -53,7 +51,7 @@ export function NotificationBell() {
               key={n.id}
               to={n.enlace || "/notificaciones"}
               className={`bell-item${n.leida ? "" : " no-leida"}`}
-              onClick={() => actualizar("notificaciones", n.id, { leida: true })}
+              onClick={() => void marcarLeida(n.id)}
             >
               <span className="bell-item-title">{n.titulo}</span>
               <span>{n.mensaje}</span>

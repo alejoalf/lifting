@@ -1,18 +1,18 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { agregar, hoy, type Observacion } from "../../lib/registros";
-
-export const TIPOS_OBSERVACION = ["Acto Inseguro", "Condición Insegura", "Práctica Segura", "Detención de Tareas"];
+import { hoy } from "../../lib/registros";
+import { TIPOS_OBSERVACION, crearObservacion, type Observacion } from "../../lib/operaciones";
 
 export default function NuevaObservacion() {
   const { operador } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState("");
+  const [guardando, setGuardando] = useState(false);
 
-  function enviar(event: FormEvent<HTMLFormElement>) {
+  async function enviar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!operador) return;
+    if (!operador || guardando) return;
     const datos = new FormData(event.currentTarget);
     const texto = (campo: string) => String(datos.get(campo) ?? "").trim();
     const tipos = datos.getAll("tipos").map(String);
@@ -26,25 +26,28 @@ export default function NuevaObservacion() {
       return;
     }
 
-    agregar("observaciones", {
-      creadoPor: operador.id,
-      reportadoPor: operador.nombre_completo,
-      tipos,
-      observador: texto("observador"),
-      sectorObservador: texto("sectorObservador"),
-      fechaDeteccion: texto("fechaDeteccion"),
-      fechaCarga: hoy(),
-      distrito: texto("distrito"),
-      sector: texto("sector"),
-      cliente: texto("cliente"),
-      lugar: texto("lugar"),
-      descripcion: texto("descripcion"),
-      accion: texto("accion"),
-      riesgo: texto("riesgo") as Observacion["riesgo"],
-      seguimiento: datos.has("seguimiento"),
-      estado: "abierta",
-    });
-    navigate("/observaciones");
+    setError("");
+    setGuardando(true);
+    try {
+      await crearObservacion({
+        tipos,
+        observador: texto("observador"),
+        sectorObservador: texto("sectorObservador"),
+        fechaDeteccion: texto("fechaDeteccion"),
+        distrito: texto("distrito"),
+        sector: texto("sector"),
+        cliente: texto("cliente"),
+        lugar: texto("lugar"),
+        descripcion: texto("descripcion"),
+        accion: texto("accion"),
+        riesgo: texto("riesgo") as Observacion["riesgo"],
+        seguimiento: datos.has("seguimiento"),
+      });
+      navigate("/observaciones");
+    } catch (fallo) {
+      setError(fallo instanceof Error ? fallo.message : "No se pudo guardar la tarjeta.");
+      setGuardando(false);
+    }
   }
 
   return (
@@ -102,7 +105,7 @@ export default function NuevaObservacion() {
 
         {error && <p className="error" role="alert">{error}</p>}
         <div className="actions">
-          <button type="submit" className="primary inline">Guardar tarjeta</button>
+          <button type="submit" className="primary inline" disabled={guardando}>{guardando ? "Guardando…" : "Guardar tarjeta"}</button>
         </div>
       </div>
     </form>

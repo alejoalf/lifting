@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../auth/AuthProvider";
-import { actualizar, esPara, formatFechaHora, marcarNotificacionesLeidas, useColeccion } from "../lib/registros";
+import { formatFechaHora } from "../lib/registros";
+import { marcarLeida, marcarTodasLeidas, useNotificaciones } from "../lib/notificaciones";
 
 const pestañas = [
   { clave: "todas", label: "Todas las notificaciones" },
@@ -10,9 +10,8 @@ const pestañas = [
 ] as const;
 
 export default function Notificaciones() {
-  const { operador } = useAuth();
   const [pestaña, setPestaña] = useState<(typeof pestañas)[number]["clave"]>("todas");
-  const propias = useColeccion("notificaciones").filter((n) => esPara(n, operador));
+  const propias = useNotificaciones("/notificaciones");
   const visibles = propias.filter((n) => pestaña === "todas" || (pestaña === "leidas") === n.leida);
 
   return (
@@ -25,7 +24,7 @@ export default function Notificaciones() {
             </button>
           ))}
         </div>
-        <button type="button" className="secondary" disabled={!propias.some((n) => !n.leida)} onClick={() => operador && marcarNotificacionesLeidas(operador)}>
+        <button type="button" className="secondary" disabled={!propias.some((n) => !n.leida)} onClick={() => void marcarTodasLeidas()}>
           Marcar todo como leído
         </button>
       </div>
@@ -39,7 +38,7 @@ export default function Notificaciones() {
               key={n.id}
               to={n.enlace || "/notificaciones"}
               className={`notificacion${n.leida ? "" : " no-leida"}`}
-              onClick={() => actualizar("notificaciones", n.id, { leida: true })}
+              onClick={() => void marcarLeida(n.id)}
             >
               <span className="notificacion-titulo">
                 {n.titulo}

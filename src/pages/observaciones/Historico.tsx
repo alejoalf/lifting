@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { actualizar, contiene, formatFecha, useColeccion } from "../../lib/registros";
-import { TIPOS_OBSERVACION } from "./Nueva";
+import { contiene, formatFecha } from "../../lib/registros";
+import { TIPOS_OBSERVACION, cerrarObservacion, useObservaciones } from "../../lib/operaciones";
 
 const filtrosVacios = {
   id: "", desde: "", hasta: "", tipo: "", riesgo: "", seguimiento: "", estado: "",
@@ -13,9 +13,27 @@ const claseRiesgo = { Bajo: "texto-ok", Medio: "texto-aviso", Alto: "texto-alto"
 
 export default function HistoricoObservaciones() {
   const { operador } = useAuth();
-  const observaciones = useColeccion("observaciones");
+  const { filas: cargadas, error: errorCarga, refresh } = useObservaciones();
   const [filtros, setFiltros] = useState(filtrosVacios);
+  const [ocupado, setOcupado] = useState<number | null>(null);
+  const [error, setError] = useState("");
   const puedeCerrar = operador?.rol === "supervisor" || operador?.rol === "admin";
+
+  if (!cargadas) return errorCarga ? <p className="error" role="alert">{errorCarga}</p> : <p className="estado">Cargando tarjetas…</p>;
+  const observaciones = cargadas;
+
+  async function cerrar(id: number) {
+    setError("");
+    setOcupado(id);
+    try {
+      await cerrarObservacion(id);
+      await refresh();
+    } catch (fallo) {
+      setError(fallo instanceof Error ? fallo.message : "No se pudo cerrar la tarjeta.");
+    } finally {
+      setOcupado(null);
+    }
+  }
 
   const filas = observaciones.filter((o) =>
     (!filtros.id || String(o.id) === filtros.id.trim()) &&
@@ -73,6 +91,7 @@ export default function HistoricoObservaciones() {
           </div>
         </div>
 
+        {error && <p className="error" role="alert">{error}</p>}
         {observaciones.length === 0 ? (
           <p className="vacio">Todavía no hay tarjetas de observación cargadas. <Link to="/observaciones/nueva">Nueva tarjeta</Link></p>
         ) : (
@@ -101,7 +120,11 @@ export default function HistoricoObservaciones() {
                       <td className={o.seguimiento ? "texto-aviso" : "texto-alto"}>{o.seguimiento ? "Sí" : "No"}</td>
                       <td className={o.estado === "cerrada" ? "texto-ok" : "texto-aviso"}>{o.estado === "cerrada" ? "Cerrada" : "Abierta"}</td>
                       {puedeCerrar && (
-                        <td>{o.estado === "abierta" && <button type="button" className="secondary" onClick={() => actualizar("observaciones", o.id, { estado: "cerrada" })}>Cerrar</button>}</td>
+                        <td>
+                          {o.estado === "abierta"
+                            ? <button type="button" className="secondary" disabled={ocupado === o.id} onClick={() => void cerrar(o.id)}>Cerrar</button>
+                            : "—"}
+                        </td>
                       )}
                     </tr>
                   ))}

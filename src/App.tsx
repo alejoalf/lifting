@@ -16,10 +16,12 @@ import Contratos, { FichaContrato } from "./pages/admin/Contratos";
 import Certificaciones, { FichaCertificacion } from "./pages/admin/Certificaciones";
 import Usuarios from "./pages/admin/Usuarios";
 import DatosAdmin from "./pages/admin/Datos";
+import Caja, { FichaMovimiento } from "./pages/admin/Caja";
 import Legajo from "./pages/Legajo";
 import Legajos, { LegajoDetalle } from "./pages/admin/Legajos";
 import Requisitos from "./pages/admin/Requisitos";
-import HistoricoChecklist from "./pages/checklist/Historico";
+import HistoricoChecklist, { DetalleChecklist } from "./pages/checklist/Historico";
+import NuevoChecklist from "./pages/checklist/Nuevo";
 import NuevaObservacion from "./pages/observaciones/Nueva";
 import HistoricoObservaciones from "./pages/observaciones/Historico";
 import Notificaciones from "./pages/Notificaciones";
@@ -44,7 +46,10 @@ export default function App() {
         <Route path="/admin/certificaciones" element={<RequireRole roles={["admin"]}><Certificaciones /></RequireRole>} />
         <Route path="/admin/certificaciones/:certificacionId" element={<RequireRole roles={["admin"]}><FichaCertificacion /></RequireRole>} />
         <Route path="/admin/usuarios" element={<RequireRole roles={["admin"]}><Usuarios /></RequireRole>} />
-        <Route path="/admin/datos/:seccion" element={<RequireRole roles={["admin"]}><DatosAdmin /></RequireRole>} />
+        <Route path="/admin/caja" element={<RequireRole roles={["admin"]}><Caja /></RequireRole>} />
+        <Route path="/admin/caja/:movimientoId" element={<RequireRole roles={["admin"]}><FichaMovimiento /></RequireRole>} />
+        <Route path="/admin/datos/caja" element={<Navigate to="/admin/caja" replace />} />
+        <Route path="/admin/datos/:seccion"element={<RequireRole roles={["admin"]}><DatosAdmin /></RequireRole>} />
         <Route path="/legajo" element={<Legajo />} />
         <Route path="/admin/legajos" element={<RequireRole roles={["supervisor", "admin"]}><Legajos /></RequireRole>} />
         <Route path="/admin/legajos/requisitos" element={<RequireRole roles={["admin"]}><Requisitos /></RequireRole>} />
@@ -52,6 +57,8 @@ export default function App() {
         <Route path="/partes/:id" element={<DetalleParte />} />
         <Route path="/partes/:id/informe/:perfil" element={<InformeParte />} />
         <Route path="/checklist" element={<HistoricoChecklist />} />
+        <Route path="/checklist/nuevo" element={<NuevoChecklist />} />
+        <Route path="/checklist/:checklistId" element={<DetalleChecklist />} />
         <Route path="/observaciones" element={<HistoricoObservaciones />} />
         <Route path="/observaciones/nueva" element={<NuevaObservacion />} />
         <Route path="/notificaciones" element={<Notificaciones />} />
