@@ -22,6 +22,16 @@ export function ListaFlota() {
   const { datos, error } = useFlota();
   const [busqueda, setBusqueda] = useState("");
   const [estado, setEstado] = useState("");
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
+
+  function alternar(id: string) {
+    setAbiertos((actual) => {
+      const siguiente = new Set(actual);
+      if (siguiente.has(id)) siguiente.delete(id);
+      else siguiente.add(id);
+      return siguiente;
+    });
+  }
 
   if (!datos) return error ? <p className="error" role="alert">{error}</p> : <p className="estado">Cargando flota…</p>;
 
@@ -58,7 +68,7 @@ export function ListaFlota() {
             </label>
           </div>
           <div className="table-wrap">
-            <table className="tabla tabla-izquierda">
+            <table className="tabla tabla-izquierda tabla-desplegable">
               <thead>
                 <tr><th>Dominio</th><th>Marca / modelo</th><th>Equipo</th><th>Estado</th><th>Último service</th><th>Próximo service</th><th>Documentos</th><th>Acciones</th></tr>
               </thead>
@@ -66,9 +76,25 @@ export function ListaFlota() {
                 {visibles.map((v) => {
                   const documental = estadoDocumental(datos.documentos, v.id);
                   const ultimo = texto(v.ultimo_service);
+                  const abierto = abiertos.has(v.id);
                   return (
-                    <tr key={v.id}>
-                      <td><Link to={`/admin/flota/${v.id}`}>{texto(v.dominio) || "—"}</Link></td>
+                    <tr key={v.id} className={abierto ? "is-open" : undefined}>
+                      <td>
+                        <Link className="solo-escritorio" to={`/admin/flota/${v.id}`}>{texto(v.dominio) || "—"}</Link>
+                        <button
+                          type="button"
+                          className="fila-toggle solo-movil"
+                          aria-expanded={abierto}
+                          onClick={() => alternar(v.id)}
+                        >
+                          <span className="fila-toggle-texto">
+                            <strong>{texto(v.dominio) || "—"}</strong>
+                            <small>{texto(v.marca_modelo) || "Sin marca / modelo"}</small>
+                          </span>
+                          <StatusChip estado={documental.peor} />
+                          <span className="fila-toggle-flecha" aria-hidden="true">▾</span>
+                        </button>
+                      </td>
                       <td>{texto(v.marca_modelo) || "—"}</td>
                       <td>{texto(v.equipo) || "—"}</td>
                       <td>{texto(v.estado) || "—"}</td>
