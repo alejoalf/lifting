@@ -530,6 +530,17 @@ label small { color: var(--muted); font-weight: 400; }
 .segmento-opcion.segmento-ingreso.is-active { color: #fff; background: var(--ok); }
 .segmento-opcion.segmento-egreso.is-active { color: #fff; background: var(--alto); }
 
+/* ---- Strix y liquidación ---- */
+.strix-subtitulo { margin: 1.5rem 0 .35rem; font-size: 1.05rem; }
+.strix-errores, .strix-viajes { margin: 0 0 1rem; }
+.strix-errores summary, .strix-viajes summary { min-height: 2.75rem; padding: .6rem 0; color: var(--sidebar); cursor: pointer; font-weight: 600; }
+.strix-errores ul { margin: 0; padding-left: 1.25rem; font-size: .9rem; }
+.strix-pase { align-items: end; margin-top: 1rem; }
+.strix-importe-titulo { margin: 0 0 .25rem; font-weight: 500; }
+.strix-importe { margin: 0 0 1rem; font: 700 1.5rem "Barlow Condensed", "Barlow", sans-serif; }
+.strix-asignar { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.strix-asignar .select-tabla { width: auto; min-width: 9rem; flex: 1 1 9rem; }
+
 /* ---- Checklist vehicular ---- */
 .segmento-opciones.tres { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .segmento-opcion.segmento-bien.is-active { color: #fff; background: var(--ok); }

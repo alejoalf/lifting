@@ -28,6 +28,24 @@ export interface Gerenciamiento {
   autorizacion: "pendiente" | "autorizado";
   responsable: string;
   estado: "abierto" | "cerrado";
+  /** Vehículo de la flota, cliente y contrato a los que se factura el viaje. */
+  vehiculoId: string | null;
+  clienteId: string | null;
+  contratoId: string | null;
+  strix: DatosStrix | null;
+}
+
+/** Totales de Strix para el horario del gerenciamiento (ver vincular_strix en la base). */
+export interface DatosStrix {
+  recorridos: number;
+  km: number | null;
+  horasMarcha: number | null;
+  horasRalenti: number | null;
+  velocidadMaxima: number | null;
+  excesos: number | null;
+  inicio: string;
+  fin: string;
+  vinculadoEn: string;
 }
 
 export type EstadoItem = "bien" | "mal" | "na";
@@ -89,6 +107,23 @@ export const ITEMS_CHECKLIST = [
 type Fila = Record<string, unknown>;
 const txt = (valor: unknown) => (valor === null || valor === undefined ? "" : String(valor));
 const hora = (valor: unknown) => txt(valor).slice(0, 5);
+const numero = (valor: unknown) => (valor === null || valor === undefined || valor === "" ? null : Number(valor));
+const idOpcional = (valor: unknown) => (valor === null || valor === undefined ? null : String(valor));
+
+function aDatosStrix(f: Fila): DatosStrix | null {
+  if (f.strix_vinculado_en === null || f.strix_vinculado_en === undefined) return null;
+  return {
+    recorridos: Number(f.strix_recorridos) || 0,
+    km: numero(f.strix_km),
+    horasMarcha: numero(f.strix_horas_marcha),
+    horasRalenti: numero(f.strix_horas_ralenti),
+    velocidadMaxima: numero(f.strix_velocidad_maxima),
+    excesos: numero(f.strix_excesos),
+    inicio: txt(f.strix_inicio),
+    fin: txt(f.strix_fin),
+    vinculadoEn: txt(f.strix_vinculado_en),
+  };
+}
 
 function aGerenciamiento(f: Fila): Gerenciamiento {
   return {
@@ -115,6 +150,10 @@ function aGerenciamiento(f: Fila): Gerenciamiento {
     autorizacion: f.autorizacion === "autorizado" ? "autorizado" : "pendiente",
     responsable: txt(f.responsable),
     estado: f.estado === "cerrado" ? "cerrado" : "abierto",
+    vehiculoId: idOpcional(f.vehiculo_id),
+    clienteId: idOpcional(f.cliente_id),
+    contratoId: idOpcional(f.contrato_id),
+    strix: aDatosStrix(f),
   };
 }
 
@@ -196,8 +235,11 @@ async function rpc(nombre: string, id: number) {
   if (error) throw new Error(error.message);
 }
 
-export function crearGerenciamiento(g: Omit<Gerenciamiento, "id" | "creadoPor" | "creadoPorNombre" | "creadoEn" | "autorizacion" | "responsable" | "estado">) {
+export function crearGerenciamiento(g: Omit<Gerenciamiento, "id" | "creadoPor" | "creadoPorNombre" | "creadoEn" | "autorizacion" | "responsable" | "estado" | "strix">) {
   return insertar("gerenciamientos", "gerenciamientos", {
+    vehiculo_id: g.vehiculoId,
+    cliente_id: g.clienteId,
+    contrato_id: g.contratoId,
     fecha_salida: g.fechaSalida,
     hora_salida: g.horaSalida,
     fecha_llegada: g.fechaLlegada,
@@ -219,6 +261,14 @@ export function crearGerenciamiento(g: Omit<Gerenciamiento, "id" | "creadoPor" |
 
 export const autorizarGerenciamiento = (id: number) => rpc("autorizar_gerenciamiento", id);
 export const cerrarGerenciamiento = (id: number) => rpc("cerrar_gerenciamiento", id);
+
+/** Supervisor o Admin: corrige vehículo, cliente y contrato de un gerenciamiento (recalcula Strix). */
+export async function asignarFacturacionGerenciamiento(id: number, vehiculoId: string | null, clienteId: string | null, contratoId: string | null) {
+  const { error } = await getSupabase().rpc("asignar_facturacion_gerenciamiento", {
+    p_id: id, p_vehiculo_id: vehiculoId, p_cliente_id: clienteId, p_contrato_id: contratoId,
+  });
+  if (error) throw new Error(error.message);
+}
 
 export function crearChecklist(c: Pick<Checklist, "vehiculo" | "conductor" | "km" | "items" | "observaciones">) {
   return insertar("checklists", "checklists", {

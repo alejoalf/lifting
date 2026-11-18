@@ -3,13 +3,26 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { hoy } from "../../lib/registros";
 import { crearGerenciamiento } from "../../lib/operaciones";
+import { useCatalogoPartes } from "../../lib/usePartes";
 
 export default function NuevoGerenciamiento() {
   const { operador } = useAuth();
   const navigate = useNavigate();
+  const { catalogo, loading: cargandoCatalogo, error: errorCatalogo } = useCatalogoPartes();
   const [segundoConductor, setSegundoConductor] = useState(false);
+  const [vehiculoId, setVehiculoId] = useState("");
+  const [clienteId, setClienteId] = useState("");
+  const [contratoId, setContratoId] = useState("");
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
+
+  if (cargandoCatalogo) return <p className="estado">Cargando vehículos y contratos…</p>;
+  if (errorCatalogo) return <p className="error" role="alert">{errorCatalogo}</p>;
+
+  // Contratos vigentes del cliente elegido; los que tienen vehículo asignado, solo para ese vehículo.
+  const contratos = catalogo.contratos.filter((c) =>
+    c.clienteId === clienteId && (!c.vehiculoId || c.vehiculoId === vehiculoId));
+  const vehiculoElegido = catalogo.vehiculos.find((v) => v.id === vehiculoId);
 
   async function enviar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -32,7 +45,10 @@ export default function NuevoGerenciamiento() {
         horaSalida: texto("horaSalida"),
         fechaLlegada: texto("fechaLlegada"),
         horaLlegada: texto("horaLlegada"),
-        vehiculo: texto("vehiculo"),
+        vehiculo: vehiculoElegido?.nombre ?? "",
+        vehiculoId: vehiculoId || null,
+        clienteId: clienteId || null,
+        contratoId: contratoId || null,
         conductor: texto("conductor"),
         conductor2: segundoConductor ? texto("conductor2") : "",
         origen: texto("origen"),
@@ -64,9 +80,31 @@ export default function NuevoGerenciamiento() {
         </div>
 
         <div className="form-grid">
-          <label>Vehículo <small>(dominio o número interno)</small>
-            <input name="vehiculo" placeholder="Ingresá dominio o número interno" required />
+          <label>Vehículo
+            <select value={vehiculoId} onChange={(e) => { setVehiculoId(e.target.value); setContratoId(""); }} required>
+              <option value="" disabled>Elegí un vehículo</option>
+              {catalogo.vehiculos.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
+            </select>
           </label>
+          <label>Cliente <small>(si el viaje es para un cliente)</small>
+            <select value={clienteId} onChange={(e) => { setClienteId(e.target.value); setContratoId(""); }}>
+              <option value="">Sin cliente / viaje interno</option>
+              {catalogo.clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </label>
+          <label>Contrato <small>(para facturar el viaje)</small>
+            <select value={contratoId} onChange={(e) => setContratoId(e.target.value)} disabled={!clienteId || !vehiculoId}>
+              <option value="">{clienteId && vehiculoId ? "Sin contrato" : "Elegí vehículo y cliente"}</option>
+              {contratos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </label>
+        </div>
+        {clienteId && vehiculoId && contratos.length === 0 && (
+          <p className="ayuda">No hay contratos vigentes de este cliente para el vehículo elegido. El administrador lo puede asignar después.</p>
+        )}
+        {catalogo.vehiculos.length === 0 && <p className="error" role="alert">No hay vehículos disponibles en la flota.</p>}
+
+        <div className="form-grid">
           <label>Conductor
             <input name="conductor" placeholder="Nombre del conductor" defaultValue={operador?.nombre_completo} required />
           </label>

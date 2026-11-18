@@ -17,6 +17,7 @@ import Certificaciones, { FichaCertificacion } from "./pages/admin/Certificacion
 import Usuarios from "./pages/admin/Usuarios";
 import DatosAdmin from "./pages/admin/Datos";
 import Caja, { FichaMovimiento } from "./pages/admin/Caja";
+import Strix from "./pages/admin/Strix";
 import Legajo from "./pages/Legajo";
 import Legajos, { LegajoDetalle } from "./pages/admin/Legajos";
 import Requisitos from "./pages/admin/Requisitos";
@@ -48,7 +49,8 @@ export default function App() {
         <Route path="/admin/usuarios" element={<RequireRole roles={["admin"]}><Usuarios /></RequireRole>} />
         <Route path="/admin/caja" element={<RequireRole roles={["admin"]}><Caja /></RequireRole>} />
         <Route path="/admin/caja/:movimientoId" element={<RequireRole roles={["admin"]}><FichaMovimiento /></RequireRole>} />
-        <Route path="/admin/datos/caja" element={<Navigate to="/admin/caja" replace />} />
+        <Route path="/admin/strix" element={<RequireRole roles={["admin"]}><Strix /></RequireRole>} />
+        <Route path="/admin/datos/caja"element={<Navigate to="/admin/caja" replace />} />
         <Route path="/admin/datos/:seccion"element={<RequireRole roles={["admin"]}><DatosAdmin /></RequireRole>} />
         <Route path="/legajo" element={<Legajo />} />
         <Route path="/admin/legajos" element={<RequireRole roles={["supervisor", "admin"]}><Legajos /></RequireRole>} />

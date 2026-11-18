@@ -110,6 +110,7 @@ export default function HistoricoGerenciamientos() {
                   <thead>
                     <tr>
                       <th>ID</th><th>Vehículo</th><th>Salida</th><th>Conductor</th><th>Línea</th><th>Destino</th>
+                      <th>Km declarados</th><th>Km Strix</th>
                       <th>Responsable</th><th>Autorización</th><th>Estado</th><th>Acciones</th>
                     </tr>
                   </thead>
@@ -124,6 +125,14 @@ export default function HistoricoGerenciamientos() {
                           <td>{g.conductor}</td>
                           <td>{g.linea}</td>
                           <td>{g.destino}</td>
+                          <td>{g.distanciaKm.toLocaleString("es-AR")} km</td>
+                          <td>
+                            {g.strix?.recorridos
+                              ? <span className={g.strix.km !== null && Math.abs(g.strix.km - g.distanciaKm) > g.distanciaKm * 0.2 ? "texto-aviso" : undefined}>
+                                  {(g.strix.km ?? 0).toLocaleString("es-AR", { maximumFractionDigits: 1 })} km
+                                </span>
+                              : "—"}
+                          </td>
                           <td>{g.responsable || "—"}</td>
                           <td className={g.autorizacion === "autorizado" ? "texto-ok" : "texto-aviso"}>{g.autorizacion === "autorizado" ? "Autorizado" : "Pendiente"}</td>
                           <td className={g.estado === "cerrado" ? "texto-alto" : "texto-ok"}>{g.estado === "cerrado" ? "Cerrado" : "Abierto"}</td>
