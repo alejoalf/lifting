@@ -742,3 +742,6 @@ ul.lista-riesgos { padding-left: 0; list-style: none; }
 }
 .clima-estado { margin: 0 0 1rem; color: var(--muted); font-size: .95rem; }
 .clima-estado strong { color: var(--tinta); }
+/* ---- Strix: notas de liquidación ---- */
+.strix-notas { margin: 0 0 1rem; padding-left: 1.25rem; font-size: .92rem; }
+.strix-notas li + li { margin-top: .25rem; }

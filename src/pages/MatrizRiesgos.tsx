@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useAuth } from "../auth/AuthProvider";
+import { DialogoEliminar, type PedidoEliminar } from "../components/ui/DialogoEliminar";
 import {
   CATEGORIAS_PELIGRO, DATOS_VIEJOS_MS, ESTADOS, NIVELES, TIPOS_EQUIPO, TIPOS_TRAMO,
   buscarLugar, descripcionClima, direccionCardinal, eliminarFila, evaluarEquipo, guardarFila, hayTormenta,
@@ -433,69 +434,6 @@ function BuscadorUbicacion({ onElegir }: { onElegir: (latitud: number, longitud:
 }
 
 // ---------- Edición (solo Admin) ----------
-
-interface PedidoEliminar {
-  id: string;
-  /** Qué se elimina, por ejemplo «el tramo». */
-  tipo: string;
-  nombre: string;
-  activo: boolean;
-  /** Qué más se borra o cambia al eliminarlo. */
-  consecuencias: string[];
-}
-
-/** Cuadro de confirmación para eliminar, con la opción de desactivar en su lugar. */
-function DialogoEliminar({ pedido, ocupado, onCancelar, onEliminar, onDesactivar }: {
-  pedido: PedidoEliminar | null; ocupado: boolean;
-  onCancelar: () => void; onEliminar: () => void; onDesactivar: () => void;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const dialogo = ref.current;
-    if (!dialogo) return;
-    if (pedido && !dialogo.open) dialogo.showModal();
-    if (!pedido && dialogo.open) dialogo.close();
-  }, [pedido]);
-
-  return (
-    <dialog
-      ref={ref}
-      className="dialogo-eliminar"
-      aria-labelledby="dialogo-eliminar-titulo"
-      onCancel={(e) => { e.preventDefault(); if (!ocupado) onCancelar(); }}
-      onClick={(e) => { if (e.target === ref.current && !ocupado) onCancelar(); }}
-    >
-      {pedido && (
-        <div className="dialogo-contenido">
-          <div className="dialogo-icono" aria-hidden="true">!</div>
-          <div>
-            <h2 id="dialogo-eliminar-titulo">¿Eliminar {pedido.tipo}?</h2>
-            <p className="dialogo-nombre">«{pedido.nombre}»</p>
-            <p>Esta acción no se puede deshacer y el cambio lo ven todos los usuarios al instante.</p>
-            {pedido.consecuencias.length > 0 && (
-              <ul className="dialogo-consecuencias">
-                {pedido.consecuencias.map((c) => <li key={c}>{c}</li>)}
-              </ul>
-            )}
-            {pedido.activo && (
-              <p className="dialogo-sugerencia">
-                Si solo querés que deje de usarse, podés <strong>desactivarlo</strong>: queda guardado y lo podés volver a activar.
-              </p>
-            )}
-          </div>
-          <div className="dialogo-acciones">
-            <button type="button" className="secondary" onClick={onCancelar} disabled={ocupado} autoFocus>Cancelar</button>
-            {pedido.activo && <button type="button" className="secondary" onClick={onDesactivar} disabled={ocupado}>Desactivar</button>}
-            <button type="button" className="boton-peligro" onClick={onEliminar} disabled={ocupado}>
-              {ocupado ? "Procesando…" : "Eliminar definitivamente"}
-            </button>
-          </div>
-        </div>
-      )}
-    </dialog>
-  );
-}
 
 function useEdicion(tabla: TablaRiesgo) {
   const [guardando, setGuardando] = useState(false);

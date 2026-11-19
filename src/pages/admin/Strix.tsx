@@ -1,70 +1,127 @@
-import { useState, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { formatFecha, formatFechaHora } from "../../lib/registros";
+import { getSupabase } from "../../lib/supabase";
 import {
-  CAMPOS_STRIX, baseDeUnidad, convertirFilas, eliminarImportacion, formatHoras, importarRecorridos, leerCsv,
-  mapeoInicial, recordarMapeo, revincularSinVehiculo, useStrix, vincularStrix,
-  type BaseLiquidacion, type Mapeo, type ResultadoImportacion, type UnidadTiempo,
+  ArchivoNoSoportado, CAMPOS_STRIX, FUENTES, baseDeUnidad, cargarManual, convertirFilas, diaSiguiente, eliminarImportacion,
+  eliminarRecorrido, faltantes, formatHoras, importarRecorridos, leerMinutos, leerNumero, leerReporte, mapeoInicial,
+  recordarMapeo, registrosDelDia, revincularSinVehiculo, separarEncabezado, tipoReporte, ultimoDia, useStrix, vincularStrix,
+  type BaseLiquidacion, type FuenteStrix, type Mapeo, type Recorrido, type ResultadoImportacion, type TipoReporte, type UnidadTiempo,
 } from "../../lib/strix";
 import { asignarFacturacionGerenciamiento, useGerenciamientos, type Gerenciamiento } from "../../lib/operaciones";
 import {
   formatImporte, guardarFila, nombreContrato, texto, useComercial,
   type DatosComerciales, type Fila,
 } from "../../lib/comercial";
+import { DialogoEliminar, type PedidoEliminar } from "../../components/ui/DialogoEliminar";
+
+const dos = (n: number) => String(n).padStart(2, "0");
 
 function mesActual() {
   const hoy = new Date();
-  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
+  return `${hoy.getFullYear()}-${dos(hoy.getMonth() + 1)}`;
 }
 
-function ultimoDia(mes: string) {
-  const [anio, numero] = mes.split("-").map(Number);
-  return `${mes}-${String(new Date(anio, numero, 0).getDate()).padStart(2, "0")}`;
+function hoy() {
+  const d = new Date();
+  return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
 }
 
 const formatKm = (km: number | null) => (km === null ? "—" : `${km.toLocaleString("es-AR", { maximumFractionDigits: 1 })} km`);
+const horasDe = (minutos: number | null) => formatHoras(minutos === null ? null : minutos / 60);
+
+/** Minutos -> "h:mm" para editar. */
+function aHhmm(minutos: number | null) {
+  if (minutos === null) return "";
+  const total = Math.round(minutos);
+  return `${Math.floor(total / 60)}:${dos(total % 60)}`;
+}
+
+const CLASE_FUENTE: Record<FuenteStrix, string> = { archivo: "sin-datos", email: "sin-datos", api: "en-revision", manual: "por-vencer" };
+
+function ChipFuente({ fuente }: { fuente: FuenteStrix }) {
+  return <span className={`chip ${CLASE_FUENTE[fuente]}`}>{FUENTES[fuente]}</span>;
+}
+
+/** Fecha (registros diarios) u horario (recorridos) de un registro. */
+function Periodo({ r }: { r: Pick<Recorrido, "granularidad" | "fecha" | "inicio" | "fin"> }) {
+  if (r.granularidad === "dia" && r.fecha) return <>{formatFecha(r.fecha)} <small className="ayuda">día completo</small></>;
+  return <>{formatFechaHora(r.inicio)}<br /><small className="ayuda">a {formatFechaHora(r.fin)}</small></>;
+}
+
+interface Vehiculo { id: string; dominio: string }
+
+function useVehiculos() {
+  const [vehiculos, setVehiculos] = useState<Vehiculo[] | null>(null);
+  useEffect(() => {
+    let activo = true;
+    getSupabase().from("vehiculos").select("id, dominio").order("dominio").then(({ data }) => {
+      if (activo) setVehiculos((data ?? []).map((v) => ({ id: String(v.id), dominio: String(v.dominio) })));
+    });
+    return () => { activo = false; };
+  }, []);
+  return vehiculos;
+}
 
 const PESTAÑAS = [
   { clave: "importar", titulo: "Importar reporte" },
-  { clave: "recorridos", titulo: "Recorridos" },
+  { clave: "manual", titulo: "Carga manual" },
+  { clave: "datos", titulo: "Datos del mes" },
   { clave: "liquidacion", titulo: "Liquidación" },
 ] as const;
 type Pestaña = (typeof PESTAÑAS)[number]["clave"];
 
+/** Vehículo y día con los que se abre la carga manual (y el registro, si es para editarlo). */
+export interface Precarga { vehiculoId: string; fecha: string; registro?: Recorrido }
+
 export default function Strix() {
   const [pestaña, setPestaña] = useState<Pestaña>("importar");
   const [mes, setMes] = useState(mesActual);
+  const [precarga, setPrecarga] = useState<Precarga | null>(null);
+
+  function cargarAMano(vehiculoId: string, fecha: string, registro?: Recorrido) {
+    setPrecarga({ vehiculoId, fecha, registro });
+    setPestaña("manual");
+  }
 
   return (
     <>
+      <p className="aviso-local">
+        Los datos de Strix entran importando el reporte exportado o cargándolos a mano. Cuando esté la conexión con la API de
+        Strix, entrarán solos y estas dos opciones quedan como respaldo para cuando la API no responda.
+      </p>
       <div className="tabs-bar">
         <div className="tabs" role="tablist" aria-label="Secciones de Strix">
           {PESTAÑAS.map((p) => (
-            <button key={p.clave} type="button" role="tab" className="tab" aria-selected={pestaña === p.clave} onClick={() => setPestaña(p.clave)}>
+            <button key={p.clave} type="button" role="tab" className="tab" aria-selected={pestaña === p.clave} onClick={() => { setPrecarga(null); setPestaña(p.clave); }}>
               {p.titulo}
             </button>
           ))}
         </div>
       </div>
-      {pestaña === "importar" && <Importar onImportado={(m) => { setMes(m); setPestaña("recorridos"); }} />}
-      {pestaña === "recorridos" && <Recorridos mes={mes} setMes={setMes} />}
-      {pestaña === "liquidacion" && <Liquidacion mes={mes} setMes={setMes} />}
+      {pestaña === "importar" && <Importar onImportado={(m) => { setMes(m); setPestaña("datos"); }} />}
+      {pestaña === "manual" && <CargaManual mes={mes} setMes={setMes} precarga={precarga} />}
+      {pestaña === "datos" && <DatosDelMes mes={mes} setMes={setMes} onCargarAMano={cargarAMano} />}
+      {pestaña === "liquidacion" && <Liquidacion mes={mes} setMes={setMes} onCargarAMano={cargarAMano} />}
     </>
   );
 }
 
+type CargarAMano = (vehiculoId: string, fecha: string, registro?: Recorrido) => void;
+
 // ---------- Importar ----------
 
-async function leerArchivo(archivo: File) {
-  const bytes = await archivo.arrayBuffer();
-  const utf8 = new TextDecoder("utf-8").decode(bytes);
-  // Los CSV que guarda Excel en español suelen venir en Windows-1252.
-  return utf8.includes("�") ? new TextDecoder("windows-1252").decode(bytes) : utf8;
-}
+interface ArchivoLeido { nombre: string; encabezados: string[]; filas: string[][]; filaEncabezado: number }
+
+const TITULO_TIPO: Record<TipoReporte, string> = {
+  dia: "Reporte diario por vehículo (como el «KMTS_RECORRIDOS» de Strix)",
+  recorrido: "Reporte por recorrido (una fila por viaje, con inicio y fin)",
+};
 
 function Importar({ onImportado }: { onImportado: (mes: string) => void }) {
-  const [archivo, setArchivo] = useState<{ nombre: string; encabezados: string[]; filas: string[][] } | null>(null);
+  const [archivo, setArchivo] = useState<ArchivoLeido | null>(null);
   const [mapeo, setMapeo] = useState<Mapeo | null>(null);
   const [error, setError] = useState("");
+  const [leyendo, setLeyendo] = useState(false);
   const [importando, setImportando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoImportacion | null>(null);
 
@@ -72,22 +129,30 @@ function Importar({ onImportado }: { onImportado: (mes: string) => void }) {
     const elegido = event.target.files?.[0];
     setError("");
     setResultado(null);
+    setArchivo(null);
+    setMapeo(null);
     if (!elegido) return;
-    if (/\.xlsx?$/i.test(elegido.name)) {
-      setError("El archivo es de Excel. Abrilo en Excel y usá Archivo → Guardar como → CSV (delimitado por comas o punto y coma).");
-      return;
+    setLeyendo(true);
+    try {
+      const { encabezados, filas, filaEncabezado } = separarEncabezado(await leerReporte(elegido));
+      if (encabezados.length < 3 || filas.length === 0) {
+        setError("No se encontraron columnas y filas en el archivo. Verificá que sea el reporte de Strix exportado en Excel o CSV.");
+        return;
+      }
+      setArchivo({ nombre: elegido.name, encabezados, filas, filaEncabezado });
+      setMapeo(mapeoInicial(encabezados));
+    } catch (fallo) {
+      setError(fallo instanceof ArchivoNoSoportado ? fallo.message : "No se pudo leer el archivo. Verificá que sea un Excel (.xlsx o .xls) o un CSV.");
+    } finally {
+      setLeyendo(false);
+      event.target.value = "";
     }
-    const { encabezados, filas } = leerCsv(await leerArchivo(elegido));
-    if (encabezados.length < 3 || filas.length === 0) {
-      setError("No se encontraron columnas y filas en el archivo. Verificá que sea el CSV del reporte de recorridos.");
-      return;
-    }
-    setArchivo({ nombre: elegido.name, encabezados, filas });
-    setMapeo(mapeoInicial(encabezados));
   }
 
-  const lectura = archivo && mapeo ? convertirFilas(archivo.encabezados, archivo.filas, mapeo) : null;
-  const faltan = mapeo ? CAMPOS_STRIX.filter((c) => c.obligatorio && !mapeo.columnas[c.campo]) : [];
+  const lectura = archivo && mapeo ? convertirFilas(archivo.encabezados, archivo.filas, mapeo, archivo.filaEncabezado) : null;
+  const faltan = mapeo ? faltantes(mapeo) : [];
+  const tipo = mapeo ? tipoReporte(mapeo) : null;
+  const unidad = lectura?.tipo === "dia" ? "días" : "recorridos";
 
   async function importar() {
     if (!archivo || !mapeo || !lectura?.recorridos.length) return;
@@ -99,9 +164,9 @@ function Importar({ onImportado }: { onImportado: (mes: string) => void }) {
       setResultado(r);
       setArchivo(null);
       setMapeo(null);
-      // Se muestra el mes del primer recorrido importado.
+      // Se muestra el mes del primer registro importado.
       const primero = lectura.recorridos.map((x) => x.inicio).sort()[0];
-      if (primero) window.setTimeout(() => onImportado(primero.slice(0, 7)), 2500);
+      if (primero) window.setTimeout(() => onImportado(primero.slice(0, 7)), 3000);
     } catch (fallo) {
       setError(fallo instanceof Error ? fallo.message : "No se pudo importar el reporte.");
     } finally {
@@ -109,80 +174,97 @@ function Importar({ onImportado }: { onImportado: (mes: string) => void }) {
     }
   }
 
+  const principales = CAMPOS_STRIX.filter((c) => ["dominio", "fecha", "inicio", "fin", "km", "contacto", "marcha", "ralenti"].includes(c.campo));
+  const otros = CAMPOS_STRIX.filter((c) => !principales.includes(c));
+  const selector = (def: (typeof CAMPOS_STRIX)[number]) => mapeo && archivo && (
+    <label key={def.campo}>{def.titulo}{!def.obligatorio && <small> (opcional)</small>}
+      <select
+        value={mapeo.columnas[def.campo] ?? ""}
+        onChange={(e) => setMapeo({ ...mapeo, columnas: { ...mapeo.columnas, [def.campo]: e.target.value || undefined } })}
+      >
+        <option value="">{def.obligatorio ? "Elegí la columna" : "No viene en el reporte"}</option>
+        {archivo.encabezados.map((e) => <option key={e} value={e}>{e}</option>)}
+      </select>
+      {def.ayuda && <small>{def.ayuda}</small>}
+    </label>
+  );
+
   return (
     <section className="panel">
-      <h2 className="panel-header">Importar reporte de recorridos de Strix</h2>
+      <h2 className="panel-header">Importar reporte de Strix</h2>
       <div className="panel-body">
         <p className="ayuda">
-          Exportá desde Strix el reporte de recorridos (viajes) del período, en CSV. Cada fila tiene que ser un recorrido con
-          dominio, inicio, fin y kilómetros. Podés importar reportes que se superpongan: los recorridos repetidos se ignoran.
-          Al importar, los recorridos se vinculan solos con los gerenciamientos del mismo vehículo y horario.
+          Descargá desde Strix el reporte de kilómetros recorridos del período en <strong>Excel</strong> (o CSV) y subilo tal cual.
+          Se aceptan el reporte diario por vehículo (una fila por vehículo y día) y el reporte por recorrido (una fila por viaje).
+          Podés importar reportes que se superpongan: si un vehículo y día ya estaba cargado, se actualiza con el valor nuevo.
+          Al importar, los datos se vinculan solos con los gerenciamientos del mismo vehículo y fecha.
         </p>
-        <label>Archivo CSV
-          <input type="file" accept=".csv,.txt,text/csv" onChange={(e) => void elegir(e)} />
+        <label>Archivo del reporte
+          <input type="file" accept=".xlsx,.xls,.ods,.csv,.txt,.pdf" onChange={(e) => void elegir(e)} disabled={leyendo || importando} />
         </label>
+        {leyendo && <p className="ayuda">Leyendo el archivo…</p>}
         {error && <p className="error" role="alert">{error}</p>}
         {resultado && (
           <p className="exito" role="status">
-            Listo: {resultado.nuevas} recorridos nuevos de {resultado.filas} leídos
-            {resultado.filas > resultado.nuevas ? ` (${resultado.filas - resultado.nuevas} ya estaban cargados)` : ""}.
-            {" "}{resultado.vinculados} gerenciamientos con datos de Strix en ese período.
-            {resultado.sin_vehiculo > 0 && ` Atención: ${resultado.sin_vehiculo} recorridos son de dominios que no están en la flota.`}
+            Listo: {resultado.filas} filas leídas, {resultado.nuevas} nuevas
+            {resultado.actualizadas > 0 && ` y ${resultado.actualizadas} actualizadas (ya estaban cargadas)`}.
+            {" "}{resultado.vinculados} gerenciamientos tienen datos de Strix en ese período.
+            {resultado.sin_vehiculo > 0 && ` Atención: ${resultado.sin_vehiculo} registros son de dominios que no están en la flota.`}
           </p>
         )}
 
-        {archivo && mapeo && lectura && (
+        {archivo && mapeo && (
           <>
             <h3 className="strix-subtitulo">Qué columna es cada dato</h3>
-            <p className="ayuda">{archivo.nombre}: {archivo.filas.length} filas. La elección queda recordada para el próximo reporte.</p>
+            <p className="ayuda">
+              {archivo.nombre}: {archivo.filas.length} filas. Las columnas se detectan solas; revisalas. La elección queda recordada.
+            </p>
+            {tipo && <p><span className="chip en-revision">{TITULO_TIPO[tipo]}</span></p>}
             <div className="form-grid compacto">
-              {CAMPOS_STRIX.map((def) => (
-                <label key={def.campo}>{def.titulo}{!def.obligatorio && <small> (opcional)</small>}
-                  <select
-                    value={mapeo.columnas[def.campo] ?? ""}
-                    onChange={(e) => setMapeo({ ...mapeo, columnas: { ...mapeo.columnas, [def.campo]: e.target.value || undefined } })}
-                    required={def.obligatorio}
-                  >
-                    <option value="">{def.obligatorio ? "Elegí la columna" : "No viene en el reporte"}</option>
-                    {archivo.encabezados.map((e) => <option key={e} value={e}>{e}</option>)}
-                  </select>
-                  {def.ayuda && <small>{def.ayuda}</small>}
-                </label>
-              ))}
-              <label>Formato de los tiempos
+              {principales.map(selector)}
+              <label>Formato de los tiempos <small>(si vienen como número)</small>
                 <select value={mapeo.unidadTiempo} onChange={(e) => setMapeo({ ...mapeo, unidadTiempo: e.target.value as UnidadTiempo })}>
-                  <option value="hhmm">hh:mm (o hh:mm:ss)</option>
+                  <option value="hhmm">Texto («2 h 5 m 13 s» o «2:05:13»)</option>
                   <option value="minutos">Minutos</option>
                   <option value="horas">Horas con decimales</option>
                 </select>
               </label>
             </div>
+            <details className="strix-errores">
+              <summary>Más columnas (opcionales)</summary>
+              <div className="form-grid compacto">{otros.map(selector)}</div>
+            </details>
 
-            {faltan.length > 0 ? (
-              <p className="error">Falta indicar: {faltan.map((f) => f.titulo).join(", ")}.</p>
+            {faltan.length > 0 || !lectura ? (
+              <p className="error">Falta indicar: {faltan.join(", ")}.</p>
             ) : (
               <>
                 <h3 className="strix-subtitulo">Vista previa</h3>
                 <div className="table-wrap">
                   <table className="tabla tabla-izquierda">
-                    <thead><tr><th>Dominio</th><th>Inicio</th><th>Fin</th><th>Km</th><th>Marcha</th><th>Ralentí</th><th>Vel. máx.</th></tr></thead>
+                    <thead>
+                      <tr>
+                        <th>Dominio</th><th>{lectura.tipo === "dia" ? "Fecha" : "Horario"}</th><th>Km</th>
+                        <th>En contacto</th><th>En movimiento</th><th>Detenido encendido</th>
+                      </tr>
+                    </thead>
                     <tbody>
-                      {lectura.recorridos.slice(0, 5).map((r, i) => (
+                      {lectura.recorridos.slice(0, 8).map((r, i) => (
                         <tr key={i}>
                           <td>{r.dominio}</td>
-                          <td>{formatFechaHora(r.inicio)}</td>
-                          <td>{formatFechaHora(r.fin)}</td>
+                          <td><Periodo r={r} /></td>
                           <td>{formatKm(r.km)}</td>
-                          <td>{formatHoras(r.minutos_marcha === null ? null : r.minutos_marcha / 60)}</td>
-                          <td>{formatHoras(r.minutos_ralenti === null ? null : r.minutos_ralenti / 60)}</td>
-                          <td>{r.velocidad_maxima === null ? "—" : `${r.velocidad_maxima} km/h`}</td>
+                          <td>{horasDe(r.minutos_contacto)}</td>
+                          <td>{horasDe(r.minutos_marcha)}</td>
+                          <td>{horasDe(r.minutos_ralenti)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
                 <p className="resultados">
-                  {lectura.recorridos.length} recorridos válidos
+                  {lectura.recorridos.length} {unidad} válidos
+                  {lectura.recorridos.length > 8 && " (se muestran los primeros 8)"}
                   {lectura.errores.length > 0 && `, ${lectura.errores.length} filas con problemas (no se importan)`}.
                 </p>
                 {lectura.errores.length > 0 && (
@@ -193,7 +275,7 @@ function Importar({ onImportado }: { onImportado: (mes: string) => void }) {
                 )}
                 <div className="actions">
                   <button type="button" className="primary inline" disabled={importando || lectura.recorridos.length === 0} onClick={() => void importar()}>
-                    {importando ? "Importando…" : `Importar ${lectura.recorridos.length} recorridos`}
+                    {importando ? "Importando…" : `Importar ${lectura.recorridos.length} ${unidad}`}
                   </button>
                 </div>
               </>
@@ -205,7 +287,9 @@ function Importar({ onImportado }: { onImportado: (mes: string) => void }) {
   );
 }
 
-// ---------- Recorridos ----------
+// ---------- Carga manual ----------
+
+const CAMPOS_VACIOS = { km: "", marcha: "", ralenti: "" };
 
 function SelectorMes({ mes, setMes }: { mes: string; setMes: (mes: string) => void }) {
   return (
@@ -215,11 +299,215 @@ function SelectorMes({ mes, setMes }: { mes: string; setMes: (mes: string) => vo
   );
 }
 
-function Recorridos({ mes, setMes }: { mes: string; setMes: (mes: string) => void }) {
+function CargaManual({ mes, setMes, precarga }: { mes: string; setMes: (mes: string) => void; precarga: Precarga | null }) {
+  const vehiculos = useVehiculos();
+  const { datos, error, refresh } = useStrix(mes);
+  const [vehiculoId, setVehiculoId] = useState(precarga?.vehiculoId ?? "");
+  const [fecha, setFecha] = useState(precarga?.fecha ?? hoy());
+  const [campos, setCampos] = useState(CAMPOS_VACIOS);
+  const [observacion, setObservacion] = useState("API de Strix sin respuesta");
+  const [existentes, setExistentes] = useState<Awaited<ReturnType<typeof registrosDelDia>> | null>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [aviso, setAviso] = useState("");
+  const [fallo, setFallo] = useState("");
+  const [pedido, setPedido] = useState<PedidoEliminar | null>(null);
+
+  useEffect(() => {
+    if (!precarga) return;
+    setVehiculoId(precarga.vehiculoId);
+    setFecha(precarga.fecha);
+    const r = precarga.registro;
+    if (r) {
+      setCampos({ km: r.km === null ? "" : String(r.km).replace(".", ","), marcha: aHhmm(r.minutos_marcha), ralenti: aHhmm(r.minutos_ralenti) });
+      setObservacion(r.observacion ?? "");
+    }
+  }, [precarga]);
+
+  // Lo que ya hay cargado de ese vehículo y día.
+  useEffect(() => {
+    setExistentes(null);
+    if (!vehiculoId || !fecha) return;
+    let activo = true;
+    registrosDelDia(vehiculoId, fecha).then((r) => { if (activo) setExistentes(r); }).catch(() => { if (activo) setExistentes(null); });
+    return () => { activo = false; };
+  }, [vehiculoId, fecha, datos]);
+
+  const km = leerNumero(campos.km);
+  const marcha = campos.marcha.trim() ? leerMinutos(campos.marcha, "hhmm") : null;
+  const ralenti = campos.ralenti.trim() ? leerMinutos(campos.ralenti, "hhmm") : null;
+  const tiempoMal = (campos.marcha.trim() !== "" && marcha === null) || (campos.ralenti.trim() !== "" && ralenti === null);
+  const totalMinutos = (marcha ?? 0) + (ralenti ?? 0);
+  const diario = existentes?.find((r) => r.granularidad === "dia");
+  const detallados = existentes?.filter((r) => r.granularidad === "recorrido") ?? [];
+  const dominio = (id: string | null) => vehiculos?.find((v) => v.id === id)?.dominio ?? "—";
+  const manuales = datos?.recorridos.filter((r) => r.fuente === "manual") ?? [];
+
+  async function guardar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAviso("");
+    setFallo("");
+    if (km === null || km < 0) return setFallo("Indicá los kilómetros recorridos (0 o más).");
+    if (tiempoMal) return setFallo("Escribí los tiempos como horas:minutos, por ejemplo 2:05, o como «2 h 5 m».");
+    if (totalMinutos > 1440) return setFallo("Entre el tiempo en movimiento y el detenido no pueden superar las 24 horas del día.");
+    setGuardando(true);
+    try {
+      const reemplazo = await cargarManual({ vehiculoId, fecha, km, minutosMarcha: marcha, minutosRalenti: ralenti, observacion });
+      setAviso(`Guardado: ${dominio(vehiculoId)} · ${formatFecha(fecha)} · ${formatKm(km)}${reemplazo ? " (reemplazó el dato anterior)" : ""}.`);
+      setCampos(CAMPOS_VACIOS);
+      // Para cargar varios días seguidos del mismo vehículo.
+      const siguiente = diaSiguiente(fecha);
+      if (fecha.slice(0, 7) !== mes) setMes(fecha.slice(0, 7));
+      if (siguiente <= hoy()) setFecha(siguiente);
+      await refresh();
+    } catch (e) {
+      setFallo(e instanceof Error ? e.message : "No se pudo guardar.");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  function editar(r: Recorrido) {
+    if (!r.vehiculo_id || !r.fecha) return;
+    setVehiculoId(r.vehiculo_id);
+    setFecha(r.fecha);
+    setCampos({ km: r.km === null ? "" : String(r.km).replace(".", ","), marcha: aHhmm(r.minutos_marcha), ralenti: aHhmm(r.minutos_ralenti) });
+    setObservacion(r.observacion ?? "");
+    setAviso("");
+    setFallo("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function eliminar() {
+    if (!pedido) return;
+    setGuardando(true);
+    try {
+      await eliminarRecorrido(Number(pedido.id));
+      setAviso(`Se eliminó el dato de ${pedido.nombre}.`);
+      setPedido(null);
+      await refresh();
+    } catch (e) {
+      setFallo(e instanceof Error ? e.message : "No se pudo eliminar.");
+      setPedido(null);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <>
+      <section className="panel">
+        <h2 className="panel-header">Cargar datos de Strix a mano</h2>
+        <form className="panel-body" onSubmit={(e) => void guardar(e)}>
+          <p className="ayuda">
+            Usala si la API de Strix no responde o no podés descargar el reporte. Cargá el total del día de cada vehículo, tal como lo
+            muestra Strix. Si después importás el reporte de ese día, sus datos reemplazan a los cargados a mano.
+          </p>
+          <div className="form-grid">
+            <label>Vehículo
+              <select value={vehiculoId} onChange={(e) => setVehiculoId(e.target.value)} required>
+                <option value="">{vehiculos === null ? "Cargando…" : "Elegí el vehículo"}</option>
+                {vehiculos?.map((v) => <option key={v.id} value={v.id}>{v.dominio}</option>)}
+              </select>
+            </label>
+            <label>Fecha
+              <input type="date" value={fecha} max={hoy()} onChange={(e) => setFecha(e.target.value)} required />
+            </label>
+            <label>Kilómetros recorridos <small>(Distancia recorrida)</small>
+              <input inputMode="decimal" value={campos.km} onChange={(e) => setCampos({ ...campos, km: e.target.value })} placeholder="Ej.: 53,74" required />
+            </label>
+            <label>Tiempo en movimiento <small>(h:mm)</small>
+              <input value={campos.marcha} onChange={(e) => setCampos({ ...campos, marcha: e.target.value })} placeholder="Ej.: 6:31" />
+            </label>
+            <label>Detenido con motor encendido <small>(h:mm)</small>
+              <input value={campos.ralenti} onChange={(e) => setCampos({ ...campos, ralenti: e.target.value })} placeholder="Ej.: 8:32" />
+            </label>
+            <label>Motivo / observación <small>(opcional)</small>
+              <input value={observacion} onChange={(e) => setObservacion(e.target.value)} />
+            </label>
+          </div>
+          {!tiempoMal && (marcha !== null || ralenti !== null) && (
+            <p className="ayuda">Tiempo en contacto: {horasDe(totalMinutos)}.</p>
+          )}
+          {diario && (
+            <p className="aviso-local">
+              Ya hay un dato de ese día ({FUENTES[diario.fuente]}: {formatKm(diario.km)}). Si guardás, se reemplaza.
+            </p>
+          )}
+          {detallados.length > 0 && (
+            <p className="aviso-local">
+              Ese día el vehículo ya tiene {detallados.length} recorridos detallados de Strix: el total diario se guarda, pero para
+              los gerenciamientos se usan los recorridos detallados.
+            </p>
+          )}
+          {fallo && <p className="error" role="alert">{fallo}</p>}
+          {aviso && <p className="exito" role="status">{aviso}</p>}
+          <div className="actions">
+            <button type="submit" className="primary inline" disabled={guardando || !vehiculoId}>
+              {guardando ? "Guardando…" : diario ? "Reemplazar el dato del día" : "Guardar"}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="panel">
+        <h2 className="panel-header">Cargados a mano</h2>
+        <div className="panel-body">
+          <SelectorMes mes={mes} setMes={setMes} />
+          {error && <p className="error" role="alert">{error}</p>}
+          {!datos ? <p className="estado">Cargando…</p> : manuales.length === 0 ? <p className="vacio">No hay datos cargados a mano en este mes.</p> : (
+            <div className="table-wrap">
+              <table className="tabla tabla-izquierda">
+                <thead><tr><th>Dominio</th><th>Fecha</th><th>Km</th><th>En movimiento</th><th>Detenido encendido</th><th>Motivo</th><th>Gerenciamientos</th><th>Acciones</th></tr></thead>
+                <tbody>
+                  {manuales.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.dominio}</td>
+                      <td>{r.fecha ? formatFecha(r.fecha) : "—"}</td>
+                      <td>{formatKm(r.km)}</td>
+                      <td>{horasDe(r.minutos_marcha)}</td>
+                      <td>{horasDe(r.minutos_ralenti)}</td>
+                      <td>{r.observacion ?? "—"}</td>
+                      <td><CeldaGerenciamientos r={r} /></td>
+                      <td className="celda-acciones">
+                        <button type="button" className="secondary" onClick={() => editar(r)}>Editar</button>
+                        <button type="button" className="secondary peligro" onClick={() => setPedido({
+                          id: String(r.id), tipo: "el dato cargado a mano", nombre: `${r.dominio} · ${r.fecha ? formatFecha(r.fecha) : ""}`,
+                          aviso: "Esta acción no se puede deshacer.",
+                          consecuencias: [`Se quitan ${formatKm(r.km)} de los gerenciamientos de ese día y se recalculan.`],
+                        })}>Eliminar</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+      <DialogoEliminar pedido={pedido} ocupado={guardando} onCancelar={() => setPedido(null)} onEliminar={() => void eliminar()} />
+    </>
+  );
+}
+
+// ---------- Datos del mes ----------
+
+function CeldaGerenciamientos({ r }: { r: Recorrido }) {
+  if (r.gerenciamientos.length) return <>{r.gerenciamientos.map((id) => `#${id}`).join(", ")}</>;
+  if (!r.vehiculo_id) return <span className="ayuda">Fuera de flota</span>;
+  if ((r.km ?? 0) > 0) return <span className="chip por-vencer" title="El vehículo se movió y ningún gerenciamiento cubre ese día u horario.">Sin gerenciamiento</span>;
+  return <span className="ayuda">—</span>;
+}
+
+interface Confirmacion { pedido: PedidoEliminar; accion: () => Promise<string> }
+
+function DatosDelMes({ mes, setMes, onCargarAMano }: { mes: string; setMes: (mes: string) => void; onCargarAMano: CargarAMano }) {
   const { datos, error, refresh } = useStrix(mes);
   const [aviso, setAviso] = useState("");
   const [ocupado, setOcupado] = useState(false);
   const [errorAccion, setErrorAccion] = useState("");
+  const [filtro, setFiltro] = useState<"todos" | "sin" | "manual">("todos");
+  const [dominioFiltro, setDominioFiltro] = useState("");
+  const [confirmacion, setConfirmacion] = useState<Confirmacion | null>(null);
 
   async function ejecutar(accion: () => Promise<string>) {
     setAviso("");
@@ -232,20 +520,48 @@ function Recorridos({ mes, setMes }: { mes: string; setMes: (mes: string) => voi
       setErrorAccion(fallo instanceof Error ? fallo.message : "No se pudo completar la acción.");
     } finally {
       setOcupado(false);
+      setConfirmacion(null);
     }
   }
 
   if (error) return <p className="error" role="alert">{error}</p>;
-  if (!datos) return <p className="estado">Cargando recorridos…</p>;
+  if (!datos) return <p className="estado">Cargando datos de Strix…</p>;
+
   const sinVehiculo = datos.recorridos.filter((r) => !r.vehiculo_id);
   const dominiosSinVehiculo = [...new Set(sinVehiculo.map((r) => r.dominio))];
+  const sinGerenciamiento = datos.recorridos.filter((r) => r.vehiculo_id && !r.gerenciamientos.length && (r.km ?? 0) > 0);
+  const dominios = [...new Set(datos.recorridos.map((r) => r.dominio))].sort();
+  const visibles = datos.recorridos.filter((r) =>
+    (!dominioFiltro || r.dominio === dominioFiltro) &&
+    (filtro === "todos" || (filtro === "manual" ? r.fuente === "manual" : sinGerenciamiento.includes(r))));
+  const hayDetalle = datos.recorridos.some((r) => r.velocidad_maxima !== null || r.excesos !== null || r.origen || r.destino);
+  const kmTotal = datos.recorridos.reduce((t, r) => t + (r.km ?? 0), 0);
+  const kmSinGerenciamiento = sinGerenciamiento.reduce((t, r) => t + (r.km ?? 0), 0);
 
   return (
     <>
       <section className="panel">
-        <h2 className="panel-header">Recorridos del mes</h2>
+        <h2 className="panel-header">Datos de Strix del mes</h2>
         <div className="panel-body">
           <SelectorMes mes={mes} setMes={setMes} />
+          <div className="stats">
+            <div className="stat stat-total"><span className="stat-label">REGISTROS</span><span className="stat-value">{datos.recorridos.length}</span></div>
+            <div className="stat stat-info"><span className="stat-label">KM DEL MES</span><span className="stat-value">{formatKm(kmTotal)}</span></div>
+            <div className={`stat${sinGerenciamiento.length ? " stat-aviso" : " stat-ok"}`}>
+              <span className="stat-label">SIN GERENCIAMIENTO</span>
+              <span className="stat-value">{sinGerenciamiento.length}</span>
+              {sinGerenciamiento.length > 0 && <span className="ayuda">{formatKm(kmSinGerenciamiento)}</span>}
+            </div>
+            <div className="stat"><span className="stat-label">CARGADOS A MANO</span><span className="stat-value">{datos.recorridos.filter((r) => r.fuente === "manual").length}</span></div>
+          </div>
+
+          {sinGerenciamiento.length > 0 && (
+            <p className="aviso-local">
+              Hay {sinGerenciamiento.length} registros en los que el vehículo se movió y ningún gerenciamiento cubre ese día u horario.
+              Puede ser un viaje sin autorizar o un trabajo sin facturar: revisalos con el filtro «Sin gerenciamiento».
+            </p>
+          )}
+
           <div className="actions actions-inicio">
             <button type="button" className="secondary" disabled={ocupado} onClick={() => void ejecutar(async () => {
               const n = await vincularStrix(`${mes}-01`, ultimoDia(mes));
@@ -263,35 +579,78 @@ function Recorridos({ mes, setMes }: { mes: string; setMes: (mes: string) => voi
           {errorAccion && <p className="error" role="alert">{errorAccion}</p>}
           {dominiosSinVehiculo.length > 0 && (
             <p className="aviso-local">
-              Dominios de Strix que no están en la flota: <strong>{dominiosSinVehiculo.join(", ")}</strong>. Sus recorridos no se
-              vinculan con ningún gerenciamiento. Si el dominio está mal escrito en la flota, corregilo y tocá "Buscar de nuevo".
+              Dominios de Strix que no están en la flota: <strong>{dominiosSinVehiculo.join(", ")}</strong>. Sus datos no se
+              vinculan con ningún gerenciamiento. Si el dominio está mal escrito en la flota, corregilo y tocá «Buscar de nuevo».
             </p>
           )}
+
+          <div className="form-grid compacto">
+            <label>Mostrar
+              <select value={filtro} onChange={(e) => setFiltro(e.target.value as typeof filtro)}>
+                <option value="todos">Todos</option>
+                <option value="sin">Sin gerenciamiento</option>
+                <option value="manual">Cargados a mano</option>
+              </select>
+            </label>
+            <label>Vehículo
+              <select value={dominioFiltro} onChange={(e) => setDominioFiltro(e.target.value)}>
+                <option value="">Todos</option>
+                {dominios.map((d) => <option key={d}>{d}</option>)}
+              </select>
+            </label>
+          </div>
 
           <div className="table-wrap">
             <table className="tabla tabla-izquierda">
               <thead>
-                <tr><th>Dominio</th><th>Inicio</th><th>Fin</th><th>Km</th><th>Marcha</th><th>Ralentí</th><th>Vel. máx.</th><th>Excesos</th><th>Origen → destino</th></tr>
+                <tr>
+                  <th>Dominio</th><th>Fecha / horario</th><th>Km</th><th>En movimiento</th><th>Detenido encendido</th>
+                  {hayDetalle && <><th>Vel. máx.</th><th>Excesos</th><th>Origen → destino</th></>}
+                  <th>Fuente</th><th>Gerenciamientos</th><th>Acciones</th>
+                </tr>
               </thead>
               <tbody>
-                {datos.recorridos.map((r) => (
+                {visibles.map((r) => (
                   <tr key={r.id}>
                     <td>{r.dominio}{!r.vehiculo_id && <> <span className="chip sin-datos">Fuera de flota</span></>}</td>
-                    <td>{formatFechaHora(r.inicio)}</td>
-                    <td>{formatFechaHora(r.fin)}</td>
+                    <td><Periodo r={r} /></td>
                     <td>{formatKm(r.km)}</td>
-                    <td>{formatHoras(r.minutos_marcha === null ? null : r.minutos_marcha / 60)}</td>
-                    <td>{formatHoras(r.minutos_ralenti === null ? null : r.minutos_ralenti / 60)}</td>
-                    <td>{r.velocidad_maxima === null ? "—" : `${r.velocidad_maxima} km/h`}</td>
-                    <td className={r.excesos ? "texto-alto" : undefined}>{r.excesos ?? "—"}</td>
-                    <td>{[r.origen, r.destino].filter(Boolean).join(" → ") || "—"}</td>
+                    <td>{horasDe(r.minutos_marcha)}</td>
+                    <td>{horasDe(r.minutos_ralenti)}</td>
+                    {hayDetalle && (
+                      <>
+                        <td>{r.velocidad_maxima === null ? "—" : `${r.velocidad_maxima} km/h`}</td>
+                        <td className={r.excesos ? "texto-alto" : undefined}>{r.excesos ?? "—"}</td>
+                        <td>{[r.origen, r.destino].filter(Boolean).join(" → ") || "—"}</td>
+                      </>
+                    )}
+                    <td><ChipFuente fuente={r.fuente} />{r.observacion && <><br /><small className="ayuda">{r.observacion}</small></>}</td>
+                    <td><CeldaGerenciamientos r={r} /></td>
+                    <td className="celda-acciones">
+                      {r.fuente === "manual" && r.vehiculo_id && r.fecha && (
+                        <button type="button" className="secondary" onClick={() => onCargarAMano(r.vehiculo_id!, r.fecha!, r)}>Editar</button>
+                      )}
+                      <button type="button" className="secondary peligro" disabled={ocupado} onClick={() => setConfirmacion({
+                        pedido: {
+                          id: String(r.id), tipo: "el registro de Strix",
+                          nombre: `${r.dominio} · ${r.fecha ? formatFecha(r.fecha) : formatFechaHora(r.inicio)}`,
+                          aviso: "Esta acción no se puede deshacer.",
+                          consecuencias: [`Se quitan ${formatKm(r.km)} de los gerenciamientos vinculados y se recalculan.`],
+                        },
+                        accion: async () => { await eliminarRecorrido(r.id); return "Registro eliminado y vinculación recalculada."; },
+                      })}>Eliminar</button>
+                    </td>
                   </tr>
                 ))}
-                {datos.recorridos.length === 0 && <tr><td colSpan={9} className="vacio">No hay recorridos de Strix en este mes.</td></tr>}
+                {visibles.length === 0 && (
+                  <tr><td colSpan={hayDetalle ? 11 : 8} className="vacio">
+                    {datos.recorridos.length === 0 ? "No hay datos de Strix en este mes. Importá el reporte o cargalos a mano." : "Ningún registro coincide con el filtro."}
+                  </td></tr>
+                )}
               </tbody>
             </table>
           </div>
-          <p className="resultados">Recorridos: {datos.recorridos.length}{datos.recorridos.length === 1000 ? " (se muestran los últimos 1000)" : ""}</p>
+          <p className="resultados">Registros: {visibles.length}{datos.recorridos.length === 3000 ? " (se muestran los últimos 3000 del mes)" : ""}</p>
         </div>
       </section>
 
@@ -301,7 +660,7 @@ function Recorridos({ mes, setMes }: { mes: string; setMes: (mes: string) => voi
           {datos.importaciones.length === 0 ? <p className="vacio">Todavía no se importó ningún reporte.</p> : (
             <div className="table-wrap">
               <table className="tabla tabla-izquierda">
-                <thead><tr><th>Archivo</th><th>Fecha</th><th>Filas</th><th>Nuevas</th><th>Fuera de flota</th><th>Acciones</th></tr></thead>
+                <thead><tr><th>Archivo</th><th>Fecha</th><th>Filas</th><th>Nuevas</th><th>Actualizadas</th><th>Fuera de flota</th><th>Acciones</th></tr></thead>
                 <tbody>
                   {datos.importaciones.map((i) => (
                     <tr key={i.id}>
@@ -309,16 +668,24 @@ function Recorridos({ mes, setMes }: { mes: string; setMes: (mes: string) => voi
                       <td>{formatFechaHora(i.created_at)}</td>
                       <td>{i.filas}</td>
                       <td>{i.nuevas}</td>
+                      <td>{i.actualizadas ?? 0}</td>
                       <td>{i.sin_vehiculo}</td>
                       <td>
-                        <button type="button" className="secondary peligro" disabled={ocupado} onClick={() => {
-                          if (!window.confirm(`¿Eliminar la importación "${i.archivo}" y sus ${i.nuevas} recorridos?`)) return;
-                          void ejecutar(async () => {
+                        <button type="button" className="secondary peligro" disabled={ocupado} onClick={() => setConfirmacion({
+                          pedido: {
+                            id: String(i.id), tipo: "la importación", nombre: i.archivo,
+                            aviso: "Esta acción no se puede deshacer.",
+                            consecuencias: [
+                              "Se eliminan los datos de Strix que trajo este archivo (los que después se actualizaron con otro reporte o a mano se conservan).",
+                              "Los gerenciamientos se recalculan.",
+                            ],
+                          },
+                          accion: async () => {
                             await eliminarImportacion(i.id);
                             await vincularStrix(null, null);
                             return "Importación eliminada y vinculación recalculada.";
-                          });
-                        }}>Eliminar</button>
+                          },
+                        })}>Eliminar</button>
                       </td>
                     </tr>
                   ))}
@@ -328,6 +695,12 @@ function Recorridos({ mes, setMes }: { mes: string; setMes: (mes: string) => voi
           )}
         </div>
       </section>
+      <DialogoEliminar
+        pedido={confirmacion?.pedido ?? null}
+        ocupado={ocupado}
+        onCancelar={() => setConfirmacion(null)}
+        onEliminar={() => confirmacion && void ejecutar(confirmacion.accion)}
+      />
     </>
   );
 }
@@ -345,6 +718,9 @@ interface Grupo {
   dias: number;
   sinStrix: number;
   abiertos: number;
+  conDiarios: number;
+  compartidos: number;
+  manuales: number;
 }
 
 /** Días calendario que abarca cada viaje (sin repetir días entre viajes). */
@@ -379,6 +755,9 @@ function agrupar(viajes: Gerenciamiento[], datos: DatosComerciales): Grupo[] {
       dias: diasDe(lista),
       sinStrix: lista.filter((v) => !v.strix?.recorridos).length,
       abiertos: lista.filter((v) => v.estado === "abierto").length,
+      conDiarios: lista.filter((v) => (v.strix?.dias ?? 0) > 0).length,
+      compartidos: lista.filter((v) => (v.strix?.compartidos ?? 0) > 0).length,
+      manuales: lista.filter((v) => (v.strix?.manuales ?? 0) > 0).length,
     }];
   });
 }
@@ -395,7 +774,8 @@ function cantidadSugerida(g: Grupo) {
   }
 }
 
-function Liquidacion({ mes, setMes }: { mes: string; setMes: (mes: string) => void }) {
+
+function Liquidacion({ mes, setMes, onCargarAMano }: { mes: string; setMes: (mes: string) => void; onCargarAMano: CargarAMano }) {
   const { filas: gerenciamientos, error: errorG, refresh: refreshG } = useGerenciamientos();
   const { datos, error: errorC, refresh: refreshC } = useComercial();
 
@@ -424,7 +804,7 @@ function Liquidacion({ mes, setMes }: { mes: string; setMes: (mes: string) => vo
         <section className="panel"><div className="panel-body"><p className="vacio">No hay gerenciamientos autorizados con contrato en este mes.</p></div></section>
       )}
       {grupos.map((g) => (
-        <GrupoContrato key={`${mes}-${g.contrato.id}`}grupo={g} datos={datos} mes={mes} tipoPeriodo={tipoPeriodo} onGuardado={refreshC} />
+        <GrupoContrato key={`${mes}-${g.contrato.id}`} grupo={g} datos={datos} mes={mes} tipoPeriodo={tipoPeriodo} onGuardado={refreshC} onCargarAMano={onCargarAMano} />
       ))}
 
       {sinContrato.length > 0 && (
@@ -456,12 +836,30 @@ function Liquidacion({ mes, setMes }: { mes: string; setMes: (mes: string) => vo
   );
 }
 
-function GrupoContrato({ grupo, datos, mes, tipoPeriodo, onGuardado }: {
+/** Km de Strix de un viaje, con el origen de los datos. */
+function CeldaKmStrix({ viaje, onCargarAMano }: { viaje: Gerenciamiento; onCargarAMano: CargarAMano }) {
+  const s = viaje.strix;
+  if (!s?.recorridos) {
+    return (
+      <>
+        <span className="texto-aviso">Sin datos</span>
+        {viaje.vehiculoId && (
+          <><br /><button type="button" className="text-button" onClick={() => onCargarAMano(viaje.vehiculoId!, viaje.fechaSalida)}>Cargar a mano</button></>
+        )}
+      </>
+    );
+  }
+  const etiquetas = [s.dias > 0 && "diario", s.compartidos > 0 && "compartido", s.manuales > 0 && "manual"].filter(Boolean);
+  return <>{formatKm(s.km)}{etiquetas.length > 0 && <><br /><small className="ayuda">{etiquetas.join(" · ")}</small></>}</>;
+}
+
+function GrupoContrato({ grupo, datos, mes, tipoPeriodo, onGuardado, onCargarAMano }: {
   grupo: Grupo;
   datos: DatosComerciales;
   mes: string;
   tipoPeriodo: string | undefined;
   onGuardado: () => Promise<void>;
+  onCargarAMano: CargarAMano;
 }) {
   const sugerida = cantidadSugerida(grupo);
   const [cantidad, setCantidad] = useState(sugerida === null ? "" : String(sugerida));
@@ -477,6 +875,7 @@ function GrupoContrato({ grupo, datos, mes, tipoPeriodo, onGuardado }: {
   const importe = cantidad && Number.isFinite(cantidadNumero) && contrato.tarifa_unitaria !== null && Number.isFinite(tarifa)
     ? cantidadNumero * tarifa : null;
   const esInfoauto = contrato.porcentaje_infoauto !== null && contrato.porcentaje_infoauto !== undefined && texto(contrato.porcentaje_infoauto) !== "";
+  const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
   async function pasar() {
     if (!cantidad || !Number.isFinite(cantidadNumero)) return setError("Indicá la cantidad a certificar.");
@@ -505,24 +904,35 @@ function GrupoContrato({ grupo, datos, mes, tipoPeriodo, onGuardado }: {
           <div><dt>Viajes</dt><dd>{grupo.viajes.length}</dd></div>
           <div><dt>Km Strix</dt><dd>{formatKm(grupo.kmStrix)}</dd></div>
           <div><dt>Km declarados</dt><dd>{formatKm(grupo.kmDeclarados)}</dd></div>
-          <div><dt>Horas en marcha</dt><dd>{formatHoras(grupo.horasMarcha)}</dd></div>
-          <div><dt>Horas en ralentí / toma de fuerza</dt><dd>{formatHoras(grupo.horasRalenti)}</dd></div>
+          <div><dt>Horas en movimiento</dt><dd>{formatHoras(grupo.horasMarcha)}</dd></div>
+          <div><dt>Horas detenido encendido / toma de fuerza</dt><dd>{formatHoras(grupo.horasRalenti)}</dd></div>
           <div><dt>Días con viaje</dt><dd>{grupo.dias}</dd></div>
           <div><dt>Tarifa unitaria</dt><dd>{contrato.tarifa_unitaria !== null && contrato.tarifa_unitaria !== undefined ? formatImporte(tarifa) : "—"}</dd></div>
         </dl>
 
         {(grupo.sinStrix > 0 || grupo.abiertos > 0) && (
           <p className="aviso-local">
-            {grupo.sinStrix > 0 && `${grupo.sinStrix} ${grupo.sinStrix === 1 ? "viaje no tiene" : "viajes no tienen"} datos de Strix (importá el reporte o revisá el horario). `}
-            {grupo.abiertos > 0 && `${grupo.abiertos} ${grupo.abiertos === 1 ? "viaje sigue abierto" : "viajes siguen abiertos"}.`}
+            {grupo.sinStrix > 0 && `${plural(grupo.sinStrix, "viaje no tiene", "viajes no tienen")} datos de Strix: importá el reporte o cargalos a mano. `}
+            {grupo.abiertos > 0 && `${plural(grupo.abiertos, "viaje sigue abierto", "viajes siguen abiertos")}.`}
           </p>
+        )}
+        {(grupo.conDiarios > 0 || grupo.compartidos > 0 || grupo.manuales > 0) && (
+          <ul className="ayuda strix-notas">
+            {grupo.conDiarios > 0 && (
+              <li>{plural(grupo.conDiarios, "viaje usa", "viajes usan")} el total diario de Strix: incluye todo lo que el vehículo recorrió esos días, también fuera del horario del viaje.</li>
+            )}
+            {grupo.compartidos > 0 && (
+              <li>{plural(grupo.compartidos, "viaje comparte", "viajes comparten")} días con otros viajes del mismo vehículo: los km de esos días se reparten según las horas de cada viaje.</li>
+            )}
+            {grupo.manuales > 0 && <li>{plural(grupo.manuales, "viaje incluye", "viajes incluyen")} datos cargados a mano.</li>}
+          </ul>
         )}
 
         <details className="strix-viajes">
           <summary>Ver los {grupo.viajes.length} viajes</summary>
           <div className="table-wrap">
             <table className="tabla tabla-izquierda">
-              <thead><tr><th>ID</th><th>Salida</th><th>Llegada</th><th>Destino</th><th>Km declarados</th><th>Km Strix</th><th>Marcha</th><th>Ralentí</th><th>Excesos</th><th>Estado</th></tr></thead>
+              <thead><tr><th>ID</th><th>Salida</th><th>Llegada</th><th>Destino</th><th>Km declarados</th><th>Km Strix</th><th>En movimiento</th><th>Detenido encendido</th><th>Excesos</th><th>Estado</th></tr></thead>
               <tbody>
                 {grupo.viajes.map((v) => (
                   <tr key={v.id}>
@@ -531,7 +941,7 @@ function GrupoContrato({ grupo, datos, mes, tipoPeriodo, onGuardado }: {
                     <td>{formatFecha(v.fechaLlegada)} {v.horaLlegada}</td>
                     <td>{v.destino}</td>
                     <td>{formatKm(v.distanciaKm)}</td>
-                    <td>{v.strix?.recorridos ? formatKm(v.strix.km) : <span className="texto-aviso">Sin datos</span>}</td>
+                    <td><CeldaKmStrix viaje={v} onCargarAMano={onCargarAMano} /></td>
                     <td>{formatHoras(v.strix?.horasMarcha ?? null)}</td>
                     <td>{formatHoras(v.strix?.horasRalenti ?? null)}</td>
                     <td className={v.strix?.excesos ? "texto-alto" : undefined}>{v.strix?.excesos ?? "—"}</td>

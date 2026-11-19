@@ -46,6 +46,12 @@ export interface DatosStrix {
   inicio: string;
   fin: string;
   vinculadoEn: string;
+  /** Registros diarios usados (incluyen todo lo que el vehículo hizo esos días). */
+  dias: number;
+  /** Registros repartidos con otros viajes del mismo vehículo. */
+  compartidos: number;
+  /** Registros cargados a mano. */
+  manuales: number;
 }
 
 export type EstadoItem = "bien" | "mal" | "na";
@@ -122,6 +128,9 @@ function aDatosStrix(f: Fila): DatosStrix | null {
     inicio: txt(f.strix_inicio),
     fin: txt(f.strix_fin),
     vinculadoEn: txt(f.strix_vinculado_en),
+    dias: Number(f.strix_dias) || 0,
+    compartidos: Number(f.strix_compartidos) || 0,
+    manuales: Number(f.strix_manuales) || 0,
   };
 }
 
