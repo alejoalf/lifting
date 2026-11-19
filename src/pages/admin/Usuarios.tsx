@@ -22,6 +22,10 @@ interface SolicitudRegistro {
   email: string;
   rol_solicitado: string;
   creado_en: string;
+  /** "email" o "google" (si la migración de registro con Google está aplicada). */
+  proveedor?: string;
+  /** false: se registró con Google y todavía no eligió el rol. */
+  rol_confirmado?: boolean;
 }
 
 const ROLES: { valor: Rol; label: string }[] = [
@@ -50,7 +54,7 @@ export default function Usuarios() {
         const [resultadoUsuarios, resultadoSolicitudes] = await Promise.all([
           getSupabase().from("operadores").select("id, auth_user_id, nombre, rol, email, telefono, cuil, activo").order("nombre"),
           getSupabase().from("solicitudes_registro")
-            .select("id, auth_user_id, nombre, email, rol_solicitado, creado_en")
+            .select("*")
             .eq("estado", "pendiente")
             .order("creado_en"),
         ]);
@@ -168,8 +172,15 @@ export default function Usuarios() {
                   {solicitudes.map((solicitud) => (
                     <tr key={solicitud.id}>
                       <td>{solicitud.nombre}</td>
-                      <td>{solicitud.email}</td>
-                      <td>{ROLES.find((rol) => rol.valor === solicitud.rol_solicitado.toLocaleLowerCase("es"))?.label ?? solicitud.rol_solicitado}</td>
+                      <td>
+                        {solicitud.email}
+                        {solicitud.proveedor === "google" && <><br /><small className="ayuda">Cuenta de Google</small></>}
+                      </td>
+                      <td>
+                        {solicitud.rol_confirmado === false
+                          ? <span className="chip sin-datos" title="Se registró con Google y todavía no eligió el rol.">Sin elegir</span>
+                          : ROLES.find((rol) => rol.valor === solicitud.rol_solicitado.toLocaleLowerCase("es"))?.label ?? solicitud.rol_solicitado}
+                      </td>
                       <td>
                         <select
                           className="select-tabla"

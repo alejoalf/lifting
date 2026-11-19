@@ -8,6 +8,8 @@ interface AuthState {
   loading: boolean;
   perfilError: string | null;
   signOut: () => Promise<void>;
+  /** Vuelve a buscar el operador de la sesión (por ejemplo, después de que aprueban la cuenta). */
+  recargarPerfil: () => void;
 }
 
 const Ctx = createContext<AuthState>(null!);
@@ -26,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [operador, setOperador] = useState<Operador | null>(null);
   const [loading, setLoading] = useState(true);
   const [perfilError, setPerfilError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     const supabase = getSupabase();
@@ -87,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [session]);
+  }, [session, version]);
 
   return (
     <Ctx.Provider value={{
@@ -99,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { error } = await getSupabase().auth.signOut();
         if (error) throw error;
       },
+      recargarPerfil: () => setVersion((v) => v + 1),
     }}>
       {children}
     </Ctx.Provider>

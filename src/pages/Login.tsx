@@ -1,8 +1,37 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { getSupabase } from "../lib/supabase";
+import { getSupabase, proveedoresHabilitados } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import { homeFor } from "../auth/RequireRole";
+import { EstadoCuenta } from "../components/auth/EstadoCuenta";
+
+/** Mensaje para el error con el que Supabase vuelve de Google (si lo hay). */
+function errorDeGoogle(): string {
+  const parametros = [new URLSearchParams(window.location.search), new URLSearchParams(window.location.hash.slice(1))];
+  const conError = parametros.find((p) => p.get("error") || p.get("error_description"));
+  if (!conError) return "";
+  const codigo = conError.get("error") ?? "";
+  const detalle = conError.get("error_description") ?? "";
+  // Solo hay error en la URL: se limpia para que no vuelva a aparecer al recargar.
+  window.history.replaceState(null, "", window.location.pathname);
+  if (codigo === "access_denied") return "Se canceló el ingreso con Google.";
+  if (/database error saving new user/i.test(detalle)) {
+    return "No se pudo crear tu cuenta con Google porque falta una actualización del sistema. Avisale al administrador.";
+  }
+  if (/provider is not enabled|unsupported provider/i.test(detalle)) return "El ingreso con Google todavía no está habilitado.";
+  return `No se pudo ingresar con Google${detalle ? `: ${detalle}` : "."}`;
+}
+
+function LogoGoogle() {
+  return (
+    <svg className="login-google-logo" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  );
+}
 
 export default function Login() {
   const { operador, session, loading, perfilError, signOut } = useAuth();
@@ -17,8 +46,58 @@ export default function Login() {
   const [success, setSuccess] = useState("");
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [googleCargando, setGoogleCargando] = useState(false);
+
+  useEffect(() => {
+    const mensaje = errorDeGoogle();
+    if (mensaje) setError(mensaje);
+  }, []);
 
   if (operador) return <Navigate to={homeFor(operador.rol)} replace />;
+
+  async function continuarConGoogle() {
+    setError("");
+    setSuccess("");
+    setGoogleCargando(true);
+    try {
+      // Si Google no está habilitado en Supabase, se avisa acá en lugar de mandar a una página de error.
+      const habilitados = await proveedoresHabilitados().catch(() => null);
+      if (habilitados && !habilitados.google) {
+        setError("El ingreso con Google todavía no está habilitado. Usá tu correo y contraseña o avisale al administrador.");
+        setGoogleCargando(false);
+        return;
+      }
+      const { error: fallo } = await getSupabase().auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/login`,
+          queryParams: { prompt: "select_account" },
+        },
+      });
+      if (fallo) {
+        setError(`No se pudo ingresar con Google: ${fallo.message}`);
+        setGoogleCargando(false);
+      }
+      // Sin error, el navegador ya está yendo a Google.
+    } catch {
+      setError("No se pudo conectar con el servicio. Revisá tu conexión e intentá de nuevo.");
+      setGoogleCargando(false);
+    }
+  }
+
+  const botonGoogle = (texto: string, nota?: string) => (
+    <>
+      <button className="login-google" type="button" onClick={() => void continuarConGoogle()} disabled={googleCargando || submitting}>
+        <LogoGoogle />
+        <span>{googleCargando ? "Abriendo Google…" : texto}</span>
+      </button>
+      {nota && <p className="login-role-help">{nota}</p>}
+      <div className="login-divisor" role="separator"><span>o con tu correo</span></div>
+    </>
+  );
+
+  // Sesión iniciada (por ejemplo, al volver de Google) sin operador vinculado todavía.
+  const cuentaSinOperador = Boolean(session) && !registrationComplete;
 
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
@@ -146,6 +225,19 @@ export default function Login() {
           <div className="login-top-logo">
             <img src="/logo.png" alt="Lifting Patagonia" width={828} height={682} />
           </div>
+          {cuentaSinOperador ? (
+            loading ? (
+              <p className="login-notice login-notice-info" role="status">Estamos preparando tu perfil…</p>
+            ) : perfilError ? (
+              <div className="login-complete">
+                <p className="login-notice login-notice-error" role="alert">{perfilError}</p>
+                <button className="secondary" type="button" onClick={() => void salirRegistro()}>Cerrar sesión</button>
+              </div>
+            ) : (
+              <EstadoCuenta />
+            )
+          ) : (
+          <>
           <div className="login-tabs" role="tablist" aria-label="Acceso al portal">
             <button
               id="login-tab"
@@ -184,6 +276,7 @@ export default function Login() {
           <div id="login-tabpanel" role="tabpanel" aria-labelledby={mode === "login" ? "login-tab" : "register-tab"}>
             {mode === "login" ? (
               <form className="login-form" onSubmit={entrar}>
+                {botonGoogle("Continuar con Google")}
                 <label htmlFor="login-email">Correo electrónico</label>
                 <div className="login-input-wrap">
                   <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
@@ -230,15 +323,8 @@ export default function Login() {
                 </div>
 
                 {error && <p className="login-notice login-notice-error" role="alert">{error}</p>}
-                {session && loading && <p className="login-notice login-notice-info" role="status">Estamos preparando tu perfil…</p>}
-                {session && perfilError && <p className="login-notice login-notice-error" role="alert">{perfilError}</p>}
-                {session && !loading && !perfilError && !operador && (
-                  <p className="login-notice login-notice-error" role="alert">
-                    Tu cuenta inició sesión, pero todavía no está vinculada a un operador. Contactá al administrador para completar la configuración.
-                  </p>
-                )}
 
-                <button className="login-submit" type="submit" disabled={submitting}>
+                <button className="login-submit" type="submit" disabled={submitting || googleCargando}>
                   <span>{submitting ? "Ingresando…" : "Ingresar al portal"}</span>
                   {!submitting && <span className="login-submit-arrow" aria-hidden="true">→</span>}
                 </button>
@@ -253,6 +339,7 @@ export default function Login() {
               </div>
             ) : (
               <form className="login-form" onSubmit={registrarse}>
+                {botonGoogle("Registrarme con Google", "Usamos tu nombre y correo de Google. Después elegís el rol que solicitás y un administrador aprueba el acceso.")}
                 <label htmlFor="register-name">Nombre y apellido</label>
                 <div className="login-input-wrap">
                   <input
@@ -333,13 +420,15 @@ export default function Login() {
                 </div>
 
                 {error && <p className="login-notice login-notice-error" role="alert">{error}</p>}
-                <button className="login-submit" type="submit" disabled={submitting}>
+                <button className="login-submit" type="submit" disabled={submitting || googleCargando}>
                   <span>{submitting ? "Enviando solicitud…" : "Crear cuenta y solicitar acceso"}</span>
                   {!submitting && <span className="login-submit-arrow" aria-hidden="true">→</span>}
                 </button>
               </form>
             )}
           </div>
+          </>
+          )}
 
           <p className="login-privacy">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
