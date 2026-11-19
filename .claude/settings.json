@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c \"import json; json.load\\(open\\('vercel.json'\\)\\); print\\('vercel.json válido'\\)\")"
+      "Bash(python -c \"import json; json.load\\(open\\('vercel.json'\\)\\); print\\('vercel.json válido'\\)\")",
+      "Bash(python -c ' *)",
+      "mcp__claude_ai_Supabase__query_logs",
+      "Bash(curl -s -o /dev/null -w \"/login en Vercel: %{http_code}\\\\n\" https://liftingpatagonia.vercel.app/login)"
     ]
   }
 }
