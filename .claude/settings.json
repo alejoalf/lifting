@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import json; json.load\\(open\\('vercel.json'\\)\\); print\\('vercel.json válido'\\)\")"
+    ]
+  }
+}
