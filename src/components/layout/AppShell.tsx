@@ -46,6 +46,12 @@ const navigation: { caption: string; items: NavigationItem[] }[] = [
     ],
   },
   {
+    caption: "SEGURIDAD",
+    items: [
+      { label: "Matriz de riesgos", to: "/matriz-riesgos", icon: "!" },
+    ],
+  },
+  {
     caption: "TARJETA DE OBSERVACIÓN",
     items: [
       { label: "Nueva tarjeta", to: "/observaciones/nueva", icon: "+" },
@@ -81,6 +87,7 @@ const pageTitles: Record<string, string> = {
   "/observaciones": "Tarjetas de observaciones",
   "/observaciones/nueva": "Tarjeta de observación",
   "/notificaciones": "Historial de notificaciones",
+  "/matriz-riesgos": "Matriz de riesgos",
 };
 
 function formatRole(rol: Rol) {

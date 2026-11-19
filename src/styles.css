@@ -675,3 +675,70 @@ img { max-width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+
+/* ---- Matriz de riesgos ---- */
+.chip.riesgo-habilitado { background: var(--ok); }
+.chip.riesgo-precaucion { color: #1a2024; background: var(--hi-vis); }
+.chip.riesgo-suspendido { background: var(--alto); }
+.chip.riesgo-sin-datos { background: var(--muted); }
+.chip.nivel-bajo { background: var(--ok); }
+.chip.nivel-moderado { color: #1a2024; background: var(--hi-vis); }
+.chip.nivel-alto { background: #d0640b; }
+.chip.nivel-critico { background: var(--alto); }
+.matriz-riesgos .chip { white-space: nowrap; }
+.matriz-actualizacion { display: inline-flex; align-items: center; gap: .75rem; font-weight: 400; }
+.matriz-actualizacion small { color: var(--muted); }
+.evaluacion { display: flex; align-items: flex-start; gap: 1rem; margin: 0 0 1.25rem; padding: 1rem 1.25rem; border: 1px solid var(--line); border-left: 6px solid var(--muted); border-radius: 8px; }
+.evaluacion p { margin: .35rem 0 0; font-size: .95rem; }
+.evaluacion-habilitado { border-left-color: var(--ok); background: color-mix(in srgb, var(--ok) 8%, var(--surface)); }
+.evaluacion-precaucion { border-left-color: var(--hi-vis); background: color-mix(in srgb, var(--hi-vis) 14%, var(--surface)); }
+.evaluacion-suspendido { border-left-color: var(--alto); background: color-mix(in srgb, var(--alto) 9%, var(--surface)); }
+.evaluacion-columnas { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 1rem 2rem; }
+.evaluacion-columnas h3 { margin: 0 0 .6rem; font-size: 1.05rem; }
+.lista-riesgos { display: grid; gap: .5rem; margin: 0; padding-left: 1.25rem; }
+ul.lista-riesgos { padding-left: 0; list-style: none; }
+.celda-acciones { white-space: nowrap; }
+@media (max-width: 600px) {
+  .evaluacion { flex-direction: column; gap: .5rem; padding: .85rem 1rem; }
+  .matriz-actualizacion { gap: .5rem; }
+}
+
+/* ---- Matriz de riesgos: clima real ---- */
+.clima-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 1rem; }
+.clima-card { display: grid; gap: .6rem; align-content: start; padding: 1rem 1.1rem; border: 1px solid var(--line); border-top: 4px solid var(--header); border-radius: 8px; background: var(--surface); }
+.clima-card header { display: grid; gap: .1rem; }
+.clima-card.clima-tormenta { border-top-color: var(--alto); background: color-mix(in srgb, var(--alto) 6%, var(--surface)); }
+.clima-principal { display: flex; align-items: center; gap: .9rem; margin: 0; line-height: 1.25; }
+.clima-temp { font: 700 2.2rem/1 "Barlow Condensed", "Barlow", sans-serif; }
+.clima-datos { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem .9rem; margin: 0; }
+.clima-datos dt { color: var(--muted); font-size: .7rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+.clima-datos dd { margin: 0; font-weight: 500; font-size: .95rem; }
+.buscador-lugar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .6rem; }
+.buscador-lugar label { flex: 1 1 14rem; }
+.buscador-lugar .secondary { min-height: 3rem; margin-bottom: 1rem; }
+.lugares { display: grid; gap: .25rem; margin: 0 0 1rem; padding-left: 1.1rem; }
+/* ---- Matriz de riesgos: formularios desplegables y confirmación ---- */
+.formulario-desplegable { border-top: 3px solid var(--hi-vis); background: color-mix(in srgb, var(--hi-vis) 5%, var(--surface)); animation: desplegar .18s ease-out; }
+@keyframes desplegar { from { opacity: 0; transform: translateY(-.4rem); } to { opacity: 1; transform: none; } }
+.resultado-trabajo { border-top: 1px solid var(--line); }
+.boton-peligro { min-height: 2.4rem; padding: .3rem 1rem; border: 1px solid var(--alto); border-radius: 6px; color: #fff; background: var(--alto); font-size: .95rem; }
+.boton-peligro:hover:not(:disabled) { background: #8f1d17; }
+.boton-peligro:disabled { opacity: .6; cursor: wait; }
+.dialogo-eliminar { width: min(30rem, calc(100vw - 2rem)); padding: 0; border: 0; border-radius: 12px; color: var(--tinta); background: var(--surface); box-shadow: 0 20px 50px rgb(0 0 0 / 25%); }
+.dialogo-eliminar::backdrop { background: rgb(15 25 20 / 55%); backdrop-filter: blur(2px); }
+.dialogo-eliminar[open] { animation: aparecer .16s ease-out; }
+@keyframes aparecer { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+.dialogo-contenido { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1rem; padding: 1.5rem; }
+.dialogo-icono { display: grid; width: 2.75rem; height: 2.75rem; place-items: center; border-radius: 50%; color: var(--alto); background: color-mix(in srgb, var(--alto) 12%, var(--surface)); font: 700 1.5rem "Barlow Condensed", sans-serif; }
+.dialogo-contenido h2 { margin: .2rem 0 .3rem; font-size: 1.45rem; }
+.dialogo-contenido p { margin: 0 0 .6rem; font-size: .95rem; }
+.dialogo-nombre { font-weight: 600; overflow-wrap: anywhere; }
+.dialogo-consecuencias { margin: 0 0 .75rem; padding: .6rem .8rem .6rem 1.8rem; border-radius: 6px; background: color-mix(in srgb, var(--alto) 7%, var(--surface)); font-size: .9rem; }
+.dialogo-sugerencia { padding: .55rem .8rem; border-left: 3px solid var(--hi-vis); border-radius: 4px; background: color-mix(in srgb, var(--hi-vis) 14%, var(--surface)); }
+.dialogo-acciones { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .6rem; grid-column: 1 / -1; padding-top: .5rem; border-top: 1px solid var(--line); }
+@media (max-width: 480px) {
+  .dialogo-contenido { grid-template-columns: 1fr; padding: 1.25rem; }
+  .dialogo-acciones > button { flex: 1 1 100%; }
+}
+.clima-estado { margin: 0 0 1rem; color: var(--muted); font-size: .95rem; }
+.clima-estado strong { color: var(--tinta); }

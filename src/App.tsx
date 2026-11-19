@@ -26,6 +26,7 @@ import NuevoChecklist from "./pages/checklist/Nuevo";
 import NuevaObservacion from "./pages/observaciones/Nueva";
 import HistoricoObservaciones from "./pages/observaciones/Historico";
 import Notificaciones from "./pages/Notificaciones";
+import MatrizRiesgos from "./pages/MatrizRiesgos";
 
 export default function App() {
   return (
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="/observaciones" element={<HistoricoObservaciones />} />
         <Route path="/observaciones/nueva" element={<NuevaObservacion />} />
         <Route path="/notificaciones" element={<Notificaciones />} />
+        <Route path="/matriz-riesgos" element={<MatrizRiesgos />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
