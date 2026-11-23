@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getSupabase } from "./supabase";
+import { getSupabase, mensajeDeError } from "./supabase";
 
 export type TipoTramo = "asfalto" | "ripio" | "locacion";
 export type TipoEquipo = "izaje" | "barquilla" | "transporte" | "otro";
@@ -498,10 +498,14 @@ export async function guardarFila(tabla: TablaRiesgo, id: string | null, fila: R
   const { error } = id
     ? await supabase.from(tabla).update(fila).eq("id", id)
     : await supabase.from(tabla).insert(fila);
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Los equipos no pueden tener el viento de precaución por encima del máximo.
+    if (error.code === "23514" && tabla === "riesgo_equipos") throw new Error("Revisá los límites: el viento de precaución no puede superar al máximo y ningún valor puede ser negativo.");
+    throw new Error(mensajeDeError(error));
+  }
 }
 
 export async function eliminarFila(tabla: TablaRiesgo, id: string) {
   const { error } = await getSupabase().from(tabla).delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(mensajeDeError(error, true));
 }

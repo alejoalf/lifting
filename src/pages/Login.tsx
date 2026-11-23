@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
+import { isAuthWeakPasswordError } from "@supabase/supabase-js";
 import { getSupabase, proveedoresHabilitados } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import { homeFor } from "../auth/RequireRole";
@@ -20,6 +21,16 @@ function errorDeGoogle(): string {
   }
   if (/provider is not enabled|unsupported provider/i.test(detalle)) return "El ingreso con Google todavía no está habilitado.";
   return `No se pudo ingresar con Google${detalle ? `: ${detalle}` : "."}`;
+}
+
+/** Explica por qué Supabase rechazó la contraseña (según las reglas configuradas en Authentication). */
+function mensajeContrasenaDebil(motivos: string[]) {
+  const detalle = [
+    motivos.includes("length") && "es demasiado corta",
+    motivos.includes("characters") && "le faltan tipos de caracteres (mayúsculas, minúsculas, números o símbolos)",
+    motivos.includes("pwned") && "apareció en filtraciones de contraseñas conocidas",
+  ].filter(Boolean).join(", ");
+  return `La contraseña no es segura${detalle ? `: ${detalle}` : ""}. Elegí otra.`;
 }
 
 function LogoGoogle() {
@@ -143,7 +154,7 @@ export default function Login() {
       });
 
       if (error) {
-        setError(`No se pudo crear la cuenta: ${error.message}`);
+        setError(isAuthWeakPasswordError(error) ? mensajeContrasenaDebil(error.reasons) : `No se pudo crear la cuenta: ${error.message}`);
         return;
       }
 

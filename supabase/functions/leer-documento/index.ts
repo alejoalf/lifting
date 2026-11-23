@@ -1,11 +1,15 @@
 // Edge Function de Supabase: lee con Claude un documento del legajo ya subido al
 // bucket "legajos" y devuelve el tipo, el titular y las fechas para precargar el
-// formulario. Necesita el secreto ANTHROPIC_API_KEY.
-import Anthropic from "npm:@anthropic-ai/sdk";
-import { zodOutputFormat } from "npm:@anthropic-ai/sdk/helpers/zod";
-import { createClient } from "npm:@supabase/supabase-js@2";
-import { encodeBase64 } from "jsr:@std/encoding/base64";
-import { z } from "npm:zod";
+// formulario. Necesita el secreto ANTHROPIC_API_KEY (Edge Functions > Secrets).
+//
+// Pedidos:
+//   { comprobar: true } -> { disponible: boolean }  (la app muestra el botón solo si está configurada)
+//   { path: "<operador>/<archivo>" } -> LecturaIA
+import Anthropic from "npm:@anthropic-ai/sdk@^1.13.0";
+import { betaZodOutputFormat } from "npm:@anthropic-ai/sdk@^1.13.0/helpers/beta/zod";
+import { createClient } from "npm:@supabase/supabase-js@^2.45.0";
+import { encodeBase64 } from "jsr:@std/encoding@^1/base64";
+import { z } from "npm:zod@^4";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -39,19 +43,30 @@ Deno.serve(async (req) => {
   const autorizacion = req.headers.get("Authorization");
   if (!autorizacion) return responder({ error: "Falta la sesión." }, 401);
 
-  let path: unknown;
+  let pedido: { path?: unknown; comprobar?: unknown };
   try {
-    ({ path } = await req.json());
+    pedido = await req.json();
   } catch {
     return responder({ error: "Pedido inválido." }, 400);
   }
-  if (typeof path !== "string" || !path) return responder({ error: "Falta el archivo a leer." }, 400);
 
   // Se usa la sesión de quien llama: las políticas del bucket y de las tablas
   // deciden si puede ver ese archivo.
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
     global: { headers: { Authorization: autorizacion } },
   });
+  const { data: sesion, error: falloSesion } = await supabase.auth.getUser();
+  if (falloSesion || !sesion.user) return responder({ error: "La sesión no es válida. Volvé a iniciar sesión." }, 401);
+
+  const configurada = Boolean(Deno.env.get("ANTHROPIC_API_KEY"));
+  if (pedido.comprobar === true) return responder({ disponible: configurada });
+  if (!configurada) {
+    console.error("Falta el secreto ANTHROPIC_API_KEY");
+    return responder({ error: "La lectura automática no está configurada. Cargá los datos a mano." }, 503);
+  }
+
+  const path = pedido.path;
+  if (typeof path !== "string" || !path) return responder({ error: "Falta el archivo a leer." }, 400);
 
   const [{ data: archivo, error: falloArchivo }, { data: tipos, error: falloTipos }] = await Promise.all([
     supabase.storage.from("legajos").download(path),
@@ -60,21 +75,24 @@ Deno.serve(async (req) => {
   if (falloArchivo || !archivo) return responder({ error: "No se pudo abrir el archivo." }, 404);
   if (falloTipos || !tipos) return responder({ error: "No se pudieron consultar los tipos de documento." }, 500);
 
-  const data = encodeBase64(await archivo.arrayBuffer());
   const mediaType = archivo.type;
   const imagen = IMAGENES.find((tipo) => tipo === mediaType);
   if (!imagen && mediaType !== "application/pdf") {
     return responder({ error: "Solo se pueden leer archivos PDF, JPG, PNG o WEBP." }, 415);
   }
+  const data = encodeBase64(await archivo.arrayBuffer());
 
-  const documento: Anthropic.ContentBlockParam = imagen
+  const documento: Anthropic.Beta.BetaContentBlockParam = imagen
     ? { type: "image", source: { type: "base64", media_type: imagen, data } }
     : { type: "document", source: { type: "base64", media_type: "application/pdf", data } };
 
   try {
-    const respuesta = await new Anthropic().messages.parse({
+    const respuesta = await new Anthropic().beta.messages.parse({
       model: "claude-opus-5-5",
       max_tokens: 16000,
+      // Si el modelo declina por política, la API reintenta sola en el modelo recomendado.
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
       system:
         "Extraés datos de documentos de personal de una empresa argentina de transporte e izaje " +
         "(licencias de conducir, aptos psicofísicos, certificados de cursos, habilitaciones). " +
@@ -92,7 +110,7 @@ Deno.serve(async (req) => {
           },
         ],
       }],
-      output_config: { effort: "medium", format: zodOutputFormat(Lectura) },
+      output_config: { effort: "medium", format: betaZodOutputFormat(Lectura) },
     });
 
     const lectura = respuesta.parsed_output;
@@ -110,13 +128,17 @@ Deno.serve(async (req) => {
     });
   } catch (fallo) {
     if (fallo instanceof Anthropic.AuthenticationError) {
-      console.error("ANTHROPIC_API_KEY inválida o ausente");
-      return responder({ error: "La lectura automática no está configurada." }, 503);
+      console.error("ANTHROPIC_API_KEY inválida");
+      return responder({ error: "La lectura automática no está configurada. Cargá los datos a mano." }, 503);
     }
     if (fallo instanceof Anthropic.RateLimitError) {
       return responder({ error: "La lectura automática está saturada. Probá de nuevo en un minuto." }, 429);
     }
-    console.error(fallo);
+    if (fallo instanceof Anthropic.APIError) {
+      console.error(`Error de la API de Anthropic ${fallo.status}:`, fallo.message);
+    } else {
+      console.error(fallo);
+    }
     return responder({ error: "No se pudo leer el documento. Cargá los datos a mano." }, 502);
   }
 });

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { getSupabase } from "../../lib/supabase";
+import { getSupabase, mensajeDeError } from "../../lib/supabase";
 import type { TipoDocumento } from "../../lib/legajos";
 
 /** Alta y activación de tipos de documento (Admin), de personal o de vehículo. */
@@ -11,12 +11,12 @@ export function TiposDocumento({ aplicaA, tipos, onCambio }: {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
 
-  async function ejecutar(accion: PromiseLike<{ error: { message: string } | null }>) {
+  async function ejecutar(accion: PromiseLike<{ error: { message: string; code?: string } | null }>) {
     setError("");
     setGuardando(true);
     try {
       const { error: fallo } = await accion;
-      if (fallo) throw new Error(fallo.message);
+      if (fallo) throw new Error(mensajeDeError(fallo));
       await onCambio();
       return true;
     } catch (e) {

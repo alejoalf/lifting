@@ -109,8 +109,9 @@ export default function Usuarios() {
       }
 
       setSolicitudes((actuales) => actuales?.filter((actual) => actual.id !== solicitud.id) ?? []);
+      const rolAsignado = ROLES.find((r) => r.valor === (rolesSolicitados[solicitud.id] ?? "chofer"))?.label ?? "Chofer";
       setAviso(aprobar
-        ? `Solicitud aprobada. ${solicitud.nombre} ya tiene acceso con el rol ${rolesSolicitados[solicitud.id] ?? "chofer"}.`
+        ? `Solicitud aprobada. ${solicitud.nombre} ya tiene acceso con el rol ${rolAsignado}.`
         : `Solicitud de ${solicitud.nombre} rechazada.`);
 
       if (aprobar) {
@@ -148,6 +149,25 @@ export default function Usuarios() {
     }
     setUsuarios(usuarios.map((u) => (u.id === usuario.id ? { ...u, rol: valor } : u)));
     setAviso(`${usuario.nombre} ahora tiene el rol ${valor}.`);
+  }
+
+  /** Desactivar corta el acceso a la app sin borrar el legajo ni el historial. */
+  async function cambiarActivo(usuario: Usuario) {
+    if (!usuarios) return;
+    const activar = usuario.activo === false;
+    if (!activar && !window.confirm(`¿Desactivar a ${usuario.nombre}? No va a poder entrar a la app hasta que lo vuelvas a activar. Su legajo y su historial se conservan.`)) return;
+    setAviso("");
+    setError("");
+    setGuardando(usuario.id);
+    const { data, error: fallo } = await getSupabase().from("operadores").update({ activo: activar }).eq("id", usuario.id).select("id");
+    setGuardando(null);
+
+    if (fallo || !data?.length) {
+      setError(`No se pudo ${activar ? "activar" : "desactivar"} a ${usuario.nombre}.`);
+      return;
+    }
+    setUsuarios(usuarios.map((u) => (u.id === usuario.id ? { ...u, activo: activar } : u)));
+    setAviso(activar ? `${usuario.nombre} puede volver a entrar a la app.` : `${usuario.nombre} ya no puede entrar a la app.`);
   }
 
   if (!usuarios) return error ? <p className="error" role="alert">{error}</p> : <p className="estado">Cargando usuarios…</p>;
@@ -263,7 +283,22 @@ export default function Usuarios() {
                           {ROLES.map((r) => <option key={r.valor} value={r.valor}>{r.label}</option>)}
                         </select>
                       </td>
-                      <td>{u.activo === null ? "—" : u.activo ? "Sí" : "No"}</td>
+                      <td>
+                        {u.activo === false ? "No" : "Sí"}
+                        {!esUnoMismo && (
+                          <>
+                            {" "}
+                            <button
+                              type="button"
+                              className={`secondary${u.activo === false ? "" : " peligro"}`}
+                              disabled={guardando === u.id}
+                              onClick={() => void cambiarActivo(u)}
+                            >
+                              {u.activo === false ? "Activar" : "Desactivar"}
+                            </button>
+                          </>
+                        )}
+                      </td>
                       <td><Link to={`/admin/legajos/${u.id}`}>Ver legajo</Link></td>
                     </tr>
                   );

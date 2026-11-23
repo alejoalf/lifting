@@ -39,6 +39,28 @@ export async function proveedoresHabilitados(): Promise<Record<string, boolean>>
   return json.external ?? {};
 }
 
+/**
+ * Mensaje en castellano para los errores técnicos de la base (restricciones,
+ * permisos, funciones faltantes). Los que lanzan nuestras funciones ya vienen
+ * redactados y se devuelven tal cual.
+ */
+export function mensajeDeError(error: { message: string; code?: string }, alBorrar = false) {
+  const { code = "", message } = error;
+  if (code === "23505" || /duplicate key/i.test(message)) return "Ya existe un registro con ese nombre o dato.";
+  if (code === "23503" || /foreign key/i.test(message)) {
+    return alBorrar
+      ? "No se puede eliminar porque tiene otros registros asociados."
+      : "Alguno de los datos elegidos ya no existe.";
+  }
+  if (code === "23514" || /check constraint/i.test(message)) return "Alguno de los valores no es válido.";
+  if (code === "23502" || /not-null constraint/i.test(message)) return "Falta completar un dato obligatorio.";
+  if (code === "42501" && /row-level security|permission denied/i.test(message)) return "No tenés permiso para hacer este cambio.";
+  if (code === "PGRST202" || /Could not find the function/i.test(message)) {
+    return "Falta aplicar una actualización de la base de datos (migración). Avisale al administrador.";
+  }
+  return message;
+}
+
 export type Rol = "chofer" | "hidrogrulero" | "supervisor" | "admin";
 
 // Ajustar al esquema real de la Tabla 7 cuando esté lista.

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { getSupabase } from "./supabase";
-import type { EstadoParte, Parte } from "./registros";
+import { getSupabase, mensajeDeError } from "./supabase";
+import type { EstadoParte, Parte, Semaforo } from "./registros";
 
 export type TipoTarea = "Transporte" | "Izaje Hidrogrua" | "Altura Barquilla";
 
@@ -52,10 +52,14 @@ function numeroOpcional(row: Record<string, unknown>, campo: string) {
   return parsed;
 }
 
+const SEMAFOROS: Semaforo[] = ["vigente", "por-vencer", "vencido"];
+
 function mapearParte(value: unknown): Parte {
   if (!isRecord(value)) throw new Error("Supabase devolvió un parte con formato inválido.");
   const estado = estados[texto(value, "estado")];
   if (!estado) throw new Error(`El estado "${texto(value, "estado")}" del parte no está reconocido.`);
+  const semaforo = SEMAFOROS.find((s) => s === value.semaforo) ?? null;
+  const vencidos = Array.isArray(value.documentos_vencidos) ? value.documentos_vencidos.map(String) : [];
 
   return {
     id: texto(value, "id"),
@@ -72,8 +76,8 @@ function mapearParte(value: unknown): Parte {
     destino: texto(value, "destino"),
     kmInicial: numero(value, "km_inicial"),
     observaciones: texto(value, "observaciones"),
-    semaforo: null,
-    documentosVencidos: [],
+    semaforo,
+    documentosVencidos: vencidos,
     estado,
     resueltoPor: texto(value, "resuelto_por"),
     resueltoEn: texto(value, "resuelto_en"),
@@ -93,8 +97,8 @@ export function usePartes() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Solo la primera carga muestra "Cargando…"; al refrescar después de una acción la pantalla no parpadea.
   const refresh = useCallback(async () => {
-    setLoading(true);
     setError("");
     try {
       const { data, error: fallo } = await getSupabase().rpc("listar_partes_diarios");
@@ -174,7 +178,7 @@ export async function crearParte(input: NuevoParte) {
     p_km_inicial: input.kmInicial,
     p_observaciones: input.observaciones,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(mensajeDeError(error));
   if (!Array.isArray(data) || !isRecord(data[0]) || typeof data[0].parte_id !== "string") {
     throw new Error("No se pudo confirmar la creación del parte. Actualizá la lista antes de volver a intentarlo.");
   }
@@ -184,3 +188,24 @@ export async function crearParte(input: NuevoParte) {
   }
   return { id: data[0].parte_id, numero: numeroParte };
 }
+
+// ---------- Acciones sobre un parte (ver migración 20261123120000_partes_diarios_flujo) ----------
+
+async function accionParte(funcion: string, parametros: Record<string, unknown>) {
+  const { error } = await getSupabase().rpc(funcion, parametros);
+  if (error) throw new Error(mensajeDeError(error));
+}
+
+/** Vuelve a hacer el control documental de un parte pendiente o con excepción. */
+export const controlarParte = (id: string) => accionParte("controlar_parte_diario", { p_id: id });
+
+/** Admin: autoriza la salida excepcional o la frena con un motivo. */
+export const resolverExcepcion = (id: string, autorizar: boolean, motivo: string) =>
+  accionParte("resolver_excepcion_parte", { p_id: id, p_autorizar: autorizar, p_motivo: motivo });
+
+/** Cierra el servicio con el kilometraje final, las horas de equipo y el trabajo realizado. */
+export const cerrarParte = (id: string, cierre: { kmFinal: number; horas: number | null; trabajo: string }) =>
+  accionParte("cerrar_parte_diario", { p_id: id, p_km_final: cierre.kmFinal, p_horas: cierre.horas, p_trabajo: cierre.trabajo });
+
+/** Supervisor o Admin: firma un parte cerrado. */
+export const firmarParte = (id: string) => accionParte("firmar_parte_diario", { p_id: id });

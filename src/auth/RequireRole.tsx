@@ -11,7 +11,8 @@ export function RequireRole({ roles, children }: { roles: Rol[]; children?: Reac
   if (loading) return <p className="estado">Cargando…</p>;
   if (!session) return <Navigate to="/login" replace />;
   if (perfilError) return <p className="estado error">{perfilError}</p>;
-  if (!operador) return <p className="estado">Tu usuario no está vinculado a un operador. En `operadores`, asociá el UUID de Authentication en `auth_user_id`.</p>;
+  // Sin operador activo (solicitud pendiente, rechazada o cuenta desactivada): el login muestra el estado de la cuenta.
+  if (!operador) return <Navigate to="/login" replace />;
   if (!roles.includes(operador.rol)) return <Navigate to={homeFor(operador.rol)} replace />;
   return <>{children ?? <Outlet />}</>;
 }

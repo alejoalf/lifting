@@ -66,9 +66,28 @@ export interface DatosLegajos {
 }
 
 const TAMANO_MAXIMO = 10 * 1024 * 1024;
-/** La lectura con IA queda pendiente: pasar a true cuando la función leer-documento esté desplegada. */
-export const LECTURA_IA_ACTIVA = false;
 export const FORMATOS_ARCHIVO ="application/pdf,image/jpeg,image/png,image/webp";
+
+/** Se consulta una vez por carga de la app; si falla (función sin publicar), la lectura con IA queda oculta. */
+let consultaLecturaIA: Promise<boolean> | null = null;
+
+/**
+ * Si la lectura con IA está disponible: la función leer-documento está publicada
+ * y tiene cargado el secreto ANTHROPIC_API_KEY. Mientras no lo esté, el botón no aparece.
+ */
+export function useLecturaIADisponible() {
+  const [disponible, setDisponible] = useState(false);
+  useEffect(() => {
+    let activo = true;
+    consultaLecturaIA ??= getSupabase().functions
+      .invoke("leer-documento", { body: { comprobar: true } })
+      .then(({ data, error }) => !error && (data as { disponible?: unknown } | null)?.disponible === true)
+      .catch(() => false);
+    void consultaLecturaIA.then((valor) => { if (activo) setDisponible(valor); });
+    return () => { activo = false; };
+  }, []);
+  return disponible;
+}
 
 /** Tipos, actividades y documentos. Sin operadorId trae los documentos que el usuario puede ver. */
 export function useLegajos(operadorId?: string) {

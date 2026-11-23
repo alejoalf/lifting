@@ -36,12 +36,14 @@ export function FormFila({ columnas, fila, referencias = {}, iniciales = {}, gua
     setError("");
     setGuardando(true);
     try {
-      const datos = Object.fromEntries(columnas.map((c) => {
+      const datos = Object.fromEntries(columnas.flatMap((c): [string, unknown][] => {
         const valor = valores[c.columna];
-        if (typeof valor === "boolean") return [c.columna, valor];
+        if (typeof valor === "boolean") return [[c.columna, valor]];
         const limpio = valor.trim();
-        if (c.tipo === "lista") return [c.columna, limpio.split(/[,;\s]+/).filter(Boolean)];
-        return [c.columna, limpio === "" ? null : c.tipo === "numero" ? Number(limpio) : limpio];
+        if (c.tipo === "lista") return [[c.columna, limpio.split(/[,;\s]+/).filter(Boolean)]];
+        // En el alta, lo que queda vacío no se manda: así la base usa su valor por defecto (por ejemplo, cantidad 0).
+        if (limpio === "" && !fila) return [];
+        return [[c.columna, limpio === "" ? null : c.tipo === "numero" ? Number(limpio) : limpio]];
       }));
       await onGuardado(await guardar(datos));
     } catch (fallo) {

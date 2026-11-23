@@ -2,7 +2,9 @@ import { useEffect, useSyncExternalStore } from "react";
 import { getSupabase } from "./supabase";
 
 // Notificaciones personales (Supabase). Las genera la base: gerenciamientos
-// pendientes o aprobados, checklists con fallas y tarjetas de riesgo alto.
+// pendientes o aprobados, checklists con fallas, tarjetas de riesgo alto,
+// partes diarios (excepción, cierre, firma) y documentos del legajo
+// (pendientes de revisión, aprobados o rechazados).
 // La campana y la pantalla de historial comparten este estado.
 
 export interface Notificacion {

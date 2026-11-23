@@ -1,8 +1,8 @@
 import { useRef, useState, type FormEvent } from "react";
 import { formatFecha } from "../../lib/registros";
 import {
-  ESTADOS_REQUISITO, FORMATOS_ARCHIVO, LECTURA_IA_ACTIVA, abrirArchivo, editarDocumento, eliminarDocumento,
-  guardarDocumento, habilitacionesDe, leerDocumentoConIA, nombreActividad, subirArchivo, useLegajos,
+  ESTADOS_REQUISITO, FORMATOS_ARCHIVO, abrirArchivo, editarDocumento, eliminarDocumento,
+  guardarDocumento, habilitacionesDe, leerDocumentoConIA, nombreActividad, subirArchivo, useLecturaIADisponible, useLegajos,
   type Bucket, type DatosLegajos, type DocumentoLegajo, type EstadoRequisito, type LecturaIA,
 } from "../../lib/legajos";
 
@@ -133,6 +133,7 @@ function FormDocumentoLegajo({ datos, operadorId, gestor, editando, onCancelar, 
   const [ocupado, setOcupado] = useState<"" | "leyendo" | "guardando">("");
   const [error, setError] = useState("");
   const [version, setVersion] = useState(0);
+  const lecturaIA = useLecturaIADisponible();
 
   const tipos = datos.tipos.filter((t) => t.activo || t.id === editando?.tipo_documento_id);
   const requiereVencimiento = tipos.find((t) => t.id === tipoId)?.requiere_vencimiento ?? true;
@@ -251,7 +252,7 @@ function FormDocumentoLegajo({ datos, operadorId, gestor, editando, onCancelar, 
       {error && <p className="error" role="alert">{error}</p>}
       <div className="actions">
         {editando && <button type="button" className="secondary" disabled={ocupado !== ""} onClick={onCancelar}>Cancelar</button>}
-        {LECTURA_IA_ACTIVA && (
+        {lecturaIA && (
           <button type="button" className="secondary" disabled={!archivo || ocupado !== ""} onClick={() => void leer()}>
             {ocupado === "leyendo" ? "Leyendo…" : "Leer datos con IA"}
           </button>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getSupabase } from "./supabase";
+import { getSupabase, mensajeDeError } from "./supabase";
 import { semaforoDe, type Semaforo } from "./registros";
 import { borrarArchivo, subirArchivo, type TipoDocumento } from "./legajos";
 
@@ -113,13 +113,13 @@ export function estadoDocumental(documentos: DocumentoVehiculo[], vehiculoId: st
 /** Crea (id null) o modifica un vehículo. Devuelve su id. */
 export async function guardarVehiculo(id: string | null, datos: Record<string, unknown>) {
   const { data, error } = await getSupabase().rpc("guardar_vehiculo", { p_id: id, p_datos: datos });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(mensajeDeError(error));
   return String(data);
 }
 
 export async function eliminarVehiculo(id: string, documentos: DocumentoVehiculo[]) {
   const { error } = await getSupabase().rpc("eliminar_vehiculo", { p_id: id });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(mensajeDeError(error, true));
   // Los documentos se borran en cascada; quedan por limpiar sus archivos.
   await Promise.all(documentos.filter((d) => d.vehiculo_id === id).map((d) => borrarArchivo(d.archivo_path, "flota")));
 }
@@ -150,13 +150,13 @@ export async function guardarDocumentoVehiculo(documento: {
     : await tabla.insert({ ...fila, vehiculo_id: documento.vehiculoId });
   if (error) {
     if (archivo) await borrarArchivo(String(fila.archivo_path), "flota");
-    throw new Error(error.message);
+    throw new Error(mensajeDeError(error));
   }
   if (archivo && anterior) await borrarArchivo(anterior.archivo_path, "flota");
 }
 
 export async function eliminarDocumentoVehiculo(documento: DocumentoVehiculo) {
   const { error } = await getSupabase().from("documentos_vehiculo").delete().eq("id", documento.id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(mensajeDeError(error, true));
   await borrarArchivo(documento.archivo_path, "flota");
 }

@@ -37,10 +37,14 @@ export default function NuevoParte() {
   if (abierto) {
     return (
       <section className="panel">
-        <h2 className="panel-header">Ya tenés un parte pendiente</h2>
+        <h2 className="panel-header">Ya tenés un parte abierto</h2>
         <div className="panel-body">
-          <p>El parte N° {abierto.numero} debe completar el control documental antes de iniciar una salida.</p>
-          <div className="actions"><Link to={`/partes/${abierto.id}`} className="primary inline">Ver parte pendiente</Link></div>
+          <p>Antes de crear otro, terminá el parte N° {abierto.numero}: {abierto.estado === "en_curso"
+            ? "cerrá el servicio cuando termine la jornada."
+            : abierto.estado === "excepcion"
+              ? "está esperando que Base autorice la salida."
+              : "falta hacer el control documental."}</p>
+          <div className="actions"><Link to={`/partes/${abierto.id}`} className="primary inline enlace-boton">Ver parte abierto</Link></div>
         </div>
       </section>
     );
@@ -135,12 +139,13 @@ export default function NuevoParte() {
         </div>
         <label>Observaciones <small>(opcional)</small><textarea name="observaciones" rows={3} /></label>
         <p className="aviso-local" role="note">
-          El control documental todavía no está conectado a Supabase. El parte se guardará como pendiente y no habilita la salida del vehículo.
+          Al registrar el parte se controla la documentación del vehículo y de tu legajo. Si todo está vigente, el parte queda en curso
+          y podés salir; si algo venció, queda esperando que Base autorice la salida.
         </p>
         {error && <p className="error" role="alert">{error}</p>}
         <div className="actions">
           <button type="submit" className="primary inline" disabled={submitting || !catalogo.clientes.length || !catalogo.vehiculos.length}>
-            {submitting ? "Guardando…" : "Registrar parte pendiente"}
+            {submitting ? "Guardando…" : "Registrar parte"}
           </button>
         </div>
       </div>

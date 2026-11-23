@@ -5,7 +5,7 @@ import { usePartes } from "../../lib/usePartes";
 import type { EstadoParte } from "../../lib/registros";
 
 const siguientePaso: Record<EstadoParte, string> = {
-  pendiente: "El control documental debe completarse antes de iniciar la salida.",
+  pendiente: "Falta hacer el control documental. Abrí el parte para hacerlo antes de salir.",
   excepcion: "Hay documentación vencida. Esperá la respuesta de Base antes de salir.",
   en_curso: "Operación en curso. Cerrá el servicio al terminar la jornada.",
   frenado: "La salida fue frenada. Contactá al administrador si necesitás revisarlo.",
@@ -34,7 +34,7 @@ export default function ChoferInicio() {
           <p>Tené a mano tus partes y accesos para empezar la jornada.</p>
         </div>
         <Link className="dashboard-button" to={abierto ? `/partes/${abierto.id}` : "/chofer/nuevo"}>
-          {abierto ? "Ver parte pendiente" : "Crear parte"}
+          {abierto ? "Ver parte abierto" : "Crear parte"}
           <span aria-hidden="true">→</span>
         </Link>
       </section>
@@ -78,7 +78,7 @@ export default function ChoferInicio() {
           </>
         ) : (
           <>
-            <p className="dashboard-supporting-text">No tenés un parte abierto. Podés registrar uno; quedará pendiente hasta completar el control documental.</p>
+            <p className="dashboard-supporting-text">No tenés un parte abierto. Al registrar uno se controla la documentación antes de habilitar la salida.</p>
             <div className="actions"><Link to="/chofer/nuevo" className="dashboard-text-link">Registrar parte <span aria-hidden="true">→</span></Link></div>
           </>
         )}

@@ -139,18 +139,24 @@ function FormVehiculo({ columnas, vehiculo, onGuardado }: {
   const [valores, setValores] = useState(() => valoresIniciales(columnas, vehiculo));
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
-  const cambiar = (columna: string, valor: string | boolean) => setValores((actuales) => ({ ...actuales, [columna]: valor }));
+  // La base exige el dominio en mayúsculas y sin espacios.
+  const cambiar = (columna: string, valor: string | boolean) => setValores((actuales) => ({
+    ...actuales,
+    [columna]: columna === "dominio" && typeof valor === "string" ? valor.toLocaleUpperCase("es").replace(/\s+/g, "") : valor,
+  }));
 
   async function enviar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setGuardando(true);
     try {
-      const datos = Object.fromEntries(columnas.map((c) => {
+      const datos = Object.fromEntries(columnas.flatMap((c): [string, unknown][] => {
         const valor = valores[c.columna];
-        if (typeof valor === "boolean") return [c.columna, valor];
+        if (typeof valor === "boolean") return [[c.columna, valor]];
         const limpio = valor.trim();
-        return [c.columna, limpio === "" ? null : c.tipo === "numero" ? Number(limpio) : limpio];
+        // En el alta, lo que queda vacío no se manda: así la base usa su valor por defecto (por ejemplo, estado «Disponible»).
+        if (limpio === "" && !vehiculo) return [];
+        return [[c.columna, limpio === "" ? null : c.tipo === "numero" ? Number(limpio) : limpio]];
       }));
       await onGuardado(await guardarVehiculo(vehiculo?.id ?? null, datos));
     } catch (fallo) {

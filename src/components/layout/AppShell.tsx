@@ -33,7 +33,7 @@ const navigation: { caption: string; items: NavigationItem[] }[] = [
       { label: "Certificaciones", to: "/admin/certificaciones", icon: "M", roles: ["admin"] },
       { label: "Strix y liquidación", to: "/admin/strix", icon: "S", roles: ["admin"] },
       { label: "Caja y gastos", to: "/admin/caja", icon: "$", roles: ["admin"] },
-      { label: "Proveedores", to: "/admin/datos/proveedores", icon: "V", roles: ["admin"] },
+      { label: "Proveedores", to: "/admin/proveedores", icon: "V", roles: ["admin"] },
     ],
   },
   {
@@ -76,7 +76,7 @@ const pageTitles: Record<string, string> = {
   "/admin/caja": "Caja y gastos",
   "/admin/strix": "Strix y liquidación de viajes",
   "/admin/caja/nuevo": "Nuevo movimiento",
-  "/admin/datos/proveedores": "Proveedores",
+  "/admin/proveedores": "Proveedores",
   "/legajo": "Mi legajo",
   "/admin/legajos": "Legajos del personal",
   "/admin/legajos/requisitos": "Requisitos por actividad",

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getSupabase } from "./supabase";
+import { getSupabase, mensajeDeError } from "./supabase";
 import { borrarArchivo, subirArchivo } from "./legajos";
 
 // Clientes, contratos y certificaciones (Supabase, solo Admin). Las columnas de
@@ -70,7 +70,6 @@ const ETIQUETAS: Record<string, string> = {
   modalidad: "Modalidad",
   tarifa_unitaria: "Tarifa unitaria",
   porcentaje_infoauto: "% sobre Infoauto",
-  vigente: "Vigente (disponible para partes)",
   periodo: "Período",
   cantidad: "Cantidad (días / horas / km)",
   valor_infoauto_mes: "Valor Infoauto del mes",
@@ -237,7 +236,7 @@ export async function eliminarFila(tabla: Tabla, id: string) {
 
 export async function agregarNota(nota: Omit<NotaHistorial, "id">) {
   const { error } = await getSupabase().from("cliente_historial").insert(nota);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(mensajeDeError(error));
 }
 
 export async function eliminarNota(id: string) {
@@ -266,7 +265,7 @@ export async function guardarCertificado(certificado: {
     : await supabase.from("certificados_empresa").insert(fila).select("id").single();
   if (guardado.error) {
     if (archivo) await borrarArchivo(String(fila.archivo_path), "certificados");
-    throw new Error(guardado.error.message);
+    throw new Error(mensajeDeError(guardado.error));
   }
   if (archivo && anterior?.archivo_path) await borrarArchivo(anterior.archivo_path, "certificados");
 
@@ -287,6 +286,6 @@ export async function guardarCertificado(certificado: {
 
 export async function eliminarCertificado(certificado: Certificado) {
   const { error } = await getSupabase().from("certificados_empresa").delete().eq("id", certificado.id);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(mensajeDeError(error, true));
   if (certificado.archivo_path) await borrarArchivo(certificado.archivo_path, "certificados");
 }
