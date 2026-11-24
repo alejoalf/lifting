@@ -43,6 +43,7 @@ const navigation: { caption: string; items: NavigationItem[] }[] = [
       { label: "Gerenciamientos", to: "/gerenciamientos", icon: "G" },
       { label: "Nuevo checklist", to: "/checklist/nuevo", icon: "+" },
       { label: "Checklist vehicular", to: "/checklist", icon: "C" },
+      { label: "Documentos del checklist", to: "/checklist/documentos", icon: "D", roles: ["admin"] },
     ],
   },
   {
@@ -80,6 +81,7 @@ const pageTitles: Record<string, string> = {
   "/legajo": "Mi legajo",
   "/admin/legajos": "Legajos del personal",
   "/admin/legajos/requisitos": "Requisitos por actividad",
+  "/checklist/documentos": "Documentos del checklist vehicular",
   "/gerenciamientos": "Gerenciamientos de viaje",
   "/gerenciamientos/nuevo": "Nuevo gerenciamiento",
   "/checklist": "Constancia checklist vehicular",

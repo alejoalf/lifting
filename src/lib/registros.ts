@@ -3,10 +3,13 @@
 
 export type Semaforo = "vigente" | "por-vencer" | "vencido";
 
-/** VIGENTE: más de 15 días. POR VENCER: 15 días o menos. VENCIDO: vence hoy o ya venció. */
+/**
+ * VIGENTE: más de 15 días. POR VENCER: de 0 a 15 días (un documento que vence hoy sigue valiendo todo el día).
+ * VENCIDO: la fecha ya pasó. Es la misma regla que usa la base para el parte, el checklist y el gerenciamiento.
+ */
 export function semaforoDe(vencimiento: string): Semaforo {
   const dias = Math.round((new Date(`${vencimiento}T00:00:00`).getTime() - new Date(`${hoy()}T00:00:00`).getTime()) / 86_400_000);
-  return dias <= 0 ? "vencido" : dias <= 15 ? "por-vencer" : "vigente";
+  return dias < 0 ? "vencido" : dias <= 15 ? "por-vencer" : "vigente";
 }
 
 /** Tabla 9 de la especificación. "frenado" es la respuesta negativa de Base a una excepción. */

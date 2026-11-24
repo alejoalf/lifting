@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { RequireRole } from "./auth/RequireRole";
 import { AppShell } from "./components/layout/AppShell";
 import Login from "./pages/Login";
+import AutorizarSalida from "./pages/AutorizarSalida";
 import ChoferInicio from "./pages/chofer/Inicio";
 import NuevoParte from "./pages/chofer/NuevoParte";
 import SupervisorPanel from "./pages/supervisor/Panel";
@@ -21,6 +22,7 @@ import Strix from "./pages/admin/Strix";
 import Legajo from "./pages/Legajo";
 import Legajos, { LegajoDetalle } from "./pages/admin/Legajos";
 import Requisitos from "./pages/admin/Requisitos";
+import DocumentosChecklist from "./pages/admin/DocumentosChecklist";
 import HistoricoChecklist, { DetalleChecklist } from "./pages/checklist/Historico";
 import NuevoChecklist from "./pages/checklist/Nuevo";
 import NuevaObservacion from "./pages/observaciones/Nueva";
@@ -32,6 +34,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      {/* Pública: enlace firmado del mail de salida excepcional (lo valida la Edge Function "correos"). */}
+      <Route path="/autorizar-salida" element={<AutorizarSalida />} />
       <Route element={<RequireRole roles={["chofer", "hidrogrulero", "supervisor", "admin"]}><AppShell /></RequireRole>}>
         <Route path="/chofer" element={<RequireRole roles={["chofer", "hidrogrulero"]}><ChoferInicio /></RequireRole>} />
         <Route path="/chofer/nuevo" element={<RequireRole roles={["chofer", "hidrogrulero"]}><NuevoParte /></RequireRole>} />
@@ -51,6 +55,7 @@ export default function App() {
         <Route path="/admin/caja" element={<RequireRole roles={["admin"]}><Caja /></RequireRole>} />
         <Route path="/admin/caja/:movimientoId" element={<RequireRole roles={["admin"]}><FichaMovimiento /></RequireRole>} />
         <Route path="/admin/strix" element={<RequireRole roles={["admin"]}><Strix /></RequireRole>} />
+        <Route path="/admin/documentos-checklist" element={<Navigate to="/checklist/documentos" replace />} />
         <Route path="/admin/proveedores" element={<RequireRole roles={["admin"]}><Proveedores /></RequireRole>} />
         {/* Direcciones viejas. */}
         <Route path="/admin/datos/caja" element={<Navigate to="/admin/caja" replace />} />
@@ -63,6 +68,7 @@ export default function App() {
         <Route path="/partes/:id/informe/:perfil" element={<InformeParte />} />
         <Route path="/checklist" element={<HistoricoChecklist />} />
         <Route path="/checklist/nuevo" element={<NuevoChecklist />} />
+        <Route path="/checklist/documentos" element={<RequireRole roles={["admin"]}><DocumentosChecklist /></RequireRole>} />
         <Route path="/checklist/:checklistId" element={<DetalleChecklist />} />
         <Route path="/observaciones" element={<HistoricoObservaciones />} />
         <Route path="/observaciones/nueva" element={<NuevaObservacion />} />

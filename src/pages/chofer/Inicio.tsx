@@ -6,7 +6,7 @@ import type { EstadoParte } from "../../lib/registros";
 
 const siguientePaso: Record<EstadoParte, string> = {
   pendiente: "Falta hacer el control documental. Abrí el parte para hacerlo antes de salir.",
-  excepcion: "Hay documentación vencida. Esperá la respuesta de Base antes de salir.",
+  excepcion: "Hay documentación vencida o la matriz de riesgos indica suspender. Esperá la respuesta de Base antes de salir.",
   en_curso: "Operación en curso. Cerrá el servicio al terminar la jornada.",
   frenado: "La salida fue frenada. Contactá al administrador si necesitás revisarlo.",
   cerrado: "",

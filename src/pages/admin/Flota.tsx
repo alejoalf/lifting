@@ -7,7 +7,7 @@ import { contiene, formatFecha, semaforoDe } from "../../lib/registros";
 import { FORMATOS_ARCHIVO } from "../../lib/legajos";
 import {
   eliminarDocumentoVehiculo, eliminarVehiculo, estadoDocumental, etiquetaColumna, guardarDocumentoVehiculo,
-  guardarVehiculo, texto, useColumnasVehiculo, useFlota,
+  guardarVehiculo, texto, useColumnasVehiculo, useEquiposRiesgo, useFlota,
   type ColumnaVehiculo, type DatosFlota, type DocumentoVehiculo, type Vehiculo,
 } from "../../lib/flota";
 
@@ -137,6 +137,7 @@ function FormVehiculo({ columnas, vehiculo, onGuardado }: {
   onGuardado: (id: string) => Promise<void>;
 }) {
   const [valores, setValores] = useState(() => valoresIniciales(columnas, vehiculo));
+  const equiposRiesgo = useEquiposRiesgo();
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   // La base exige el dominio en mayúsculas y sin espacios.
@@ -177,6 +178,16 @@ function FormVehiculo({ columnas, vehiculo, onGuardado }: {
               <div key={c.columna}>
                 <label className="check"><input type="checkbox" checked={valor} onChange={(e) => cambiar(c.columna, e.target.checked)} /> {etiquetaColumna(c.columna)}</label>
               </div>
+            );
+          }
+          if (c.columna === "riesgo_equipo_id") {
+            return (
+              <label key={c.columna}>{etiqueta}
+                <select value={valor} onChange={(e) => cambiar(c.columna, e.target.value)}>
+                  <option value="">Sin equipo (no se evalúa el viento)</option>
+                  {equiposRiesgo.filter((e) => e.activo || e.id === valor).map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                </select>
+              </label>
             );
           }
           if (c.tipo === "enum") {

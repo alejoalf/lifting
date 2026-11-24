@@ -1,10 +1,54 @@
 import { useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
+import { DatosRiesgo, TEXTO_RIESGO, TablaTrabajos, TextoAts, TotalesStrix, hayRiesgo } from "../../components/partes/ResumenParte";
 import { EstadoParteChip } from "../../components/partes/TablaPartes";
+import { BotonEliminar } from "../../components/ui/BotonEliminar";
 import { StatusChip } from "../../components/ui/StatusChip";
+import { eliminarParteDiario } from "../../lib/operaciones";
 import { formatFecha, formatFechaHora, type Parte } from "../../lib/registros";
-import { cerrarParte, controlarParte, firmarParte, resolverExcepcion, usePartes } from "../../lib/usePartes";
+import { cerrarParte, controlarParte, firmarParte, resolverExcepcion, usePartes, useResumenParte } from "../../lib/usePartes";
+
+/** Ubicación, evaluación de riesgo, ATS y trabajos (gerenciamientos) del parte. */
+function ResumenDelParte({ parte }: { parte: Parte }) {
+  const { resumen, error } = useResumenParte(parte.id);
+  if (error) return <p className="error" role="alert">{error}</p>;
+  if (!resumen) return null;
+  const estado = resumen.riesgo.estado ? TEXTO_RIESGO[resumen.riesgo.estado] : null;
+  const puedeSumarTrabajos = parte.estado === "en_curso";
+
+  return (
+    <>
+      {(hayRiesgo(resumen.riesgo) || resumen.ats) && (
+        <section className="panel">
+          <h2 className="panel-header panel-header-fila">
+            Ubicación y condiciones
+            {estado && <span className={`chip ${estado.clase}`}>{estado.texto}</span>}
+          </h2>
+          <div className="panel-body">
+            <DatosRiesgo riesgo={resumen.riesgo} />
+            <h3 className="checklist-subtitulo">Análisis de trabajo seguro (ATS)</h3>
+            <TextoAts ats={resumen.ats} />
+            {resumen.conformidadEn && <p className="exito">Conformidad del operador: {formatFechaHora(resumen.conformidadEn)}.</p>}
+          </div>
+        </section>
+      )}
+
+      <section className="panel">
+        <h2 className="panel-header panel-header-fila">
+          Trabajos del día (gerenciamientos)
+          {puedeSumarTrabajos && <Link className="secondary enlace-boton" to="/gerenciamientos/nuevo">Nuevo gerenciamiento</Link>}
+        </h2>
+        <div className="panel-body">
+          <p className="ayuda">Los gerenciamientos que se cargan para este vehículo mientras el parte está en curso quedan dentro del parte.</p>
+          <TablaTrabajos resumen={resumen} />
+          <h3 className="checklist-subtitulo">Strix</h3>
+          <TotalesStrix resumen={resumen} />
+        </div>
+      </section>
+    </>
+  );
+}
 
 const HORAS_EQUIPO: Record<string, string> = {
   "Izaje Hidrogrua": "Horas de hidrogrúa",
@@ -25,7 +69,7 @@ function ListaVencidos({ parte }: { parte: Parte }) {
   if (parte.documentosVencidos.length === 0) return null;
   return (
     <ul className="lista-requisitos">
-      {parte.documentosVencidos.map((d) => <li key={d}><span className="chip vencido">Vencido</span> {d}</li>)}
+      {parte.documentosVencidos.map((d) => <li key={d}><span className="chip vencido">{d.startsWith("Matriz de riesgos") ? "Suspender" : "Vencido"}</span> {d}</li>)}
     </ul>
   );
 }
@@ -132,7 +176,7 @@ function Seguimiento({ parte, permisos, ocupado, ejecutar }: { parte: Parte; per
       return (
         <>
           <p className="aviso-local" role="status">
-            Hay documentación vencida. La salida necesita la autorización de un administrador.
+            Hay documentación vencida o la matriz de riesgos indica suspender. La salida necesita la autorización de un administrador.
           </p>
           <ListaVencidos parte={parte} />
           {esAdmin && <ResolverExcepcion parte={parte} ocupado={ocupado} ejecutar={ejecutar} />}
@@ -199,6 +243,7 @@ function Seguimiento({ parte, permisos, ocupado, ejecutar }: { parte: Parte; per
 
 export default function DetalleParte() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { operador } = useAuth();
   const { partes, loading, error, refresh } = usePartes();
   const [ocupado, setOcupado] = useState(false);
@@ -218,6 +263,10 @@ export default function DetalleParte() {
   }
 
   const permisos: Permisos = { esDueno: parte.creadoPor === operador.id, esBase: esSupervisor, esAdmin: operador.rol === "admin" };
+  // Misma regla que la base: admin siempre; supervisor si no está firmado; el operador antes de salir.
+  const puedeBorrar = permisos.esAdmin
+    || (esSupervisor && !parte.firmadoEn)
+    || (permisos.esDueno && ["pendiente", "excepcion", "frenado"].includes(parte.estado));
 
   const ejecutar: Ejecutar = async (accion, mensaje) => {
     setAviso("");
@@ -270,6 +319,8 @@ export default function DetalleParte() {
         </div>
       </section>
 
+      <ResumenDelParte parte={parte} />
+
       <section className="panel">
         <h2 className="panel-header">Seguimiento</h2>
         <div className="panel-body">
@@ -294,7 +345,17 @@ export default function DetalleParte() {
         </section>
       )}
 
-      <p><Link to={volver}>← Volver a partes</Link></p>
+      <div className="actions actions-inicio">
+        <Link to={volver}>← Volver a partes</Link>
+        {puedeBorrar && (
+          <BotonEliminar
+            tipo="el parte diario"
+            nombre={`N° ${parte.numero} · ${parte.vehiculo} · ${formatFecha(parte.fecha)}`}
+            consecuencias={["Los gerenciamientos que agrupaba quedan cargados, pero sin parte."]}
+            onEliminar={async () => { await eliminarParteDiario(parte.id); navigate(volver); }}
+          />
+        )}
+      </div>
     </>
   );
 }

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { contiene, formatFecha, hoy } from "../../lib/registros";
-import { autorizarGerenciamiento, cerrarGerenciamiento, useGerenciamientos, type Gerenciamiento } from "../../lib/operaciones";
+import { autorizarGerenciamiento, cerrarGerenciamiento, eliminarGerenciamiento, useGerenciamientos, type Gerenciamiento } from "../../lib/operaciones";
+import { BotonEliminar } from "../../components/ui/BotonEliminar";
 
 const filtrosVacios = { id: "", conductor: "", destino: "", autorizacion: "", estado: "", desde: "", hasta: "" };
 
@@ -134,7 +135,12 @@ export default function HistoricoGerenciamientos() {
                               : "—"}
                           </td>
                           <td>{g.responsable || "—"}</td>
-                          <td className={g.autorizacion === "autorizado" ? "texto-ok" : "texto-aviso"}>{g.autorizacion === "autorizado" ? "Autorizado" : "Pendiente"}</td>
+                          <td className={g.autorizacion === "autorizado" ? "texto-ok" : "texto-aviso"}>
+                            {g.autorizacion === "autorizado" ? "Autorizado" : "Pendiente"}
+                            {g.checklistId !== null
+                              ? <><br /><small><Link to={`/checklist/${g.checklistId}`}>Checklist #{g.checklistId}</Link></small></>
+                              : g.autorizacion === "pendiente" && <><br /><small className="texto-alto">Falta checklist (24 h antes de salir)</small></>}
+                          </td>
                           <td className={g.estado === "cerrado" ? "texto-alto" : "texto-ok"}>{g.estado === "cerrado" ? "Cerrado" : "Abierto"}</td>
                           <td>
                             {puedeAutorizar && g.autorizacion === "pendiente" && (
@@ -143,7 +149,15 @@ export default function HistoricoGerenciamientos() {
                             {puedeCerrar && (
                               <button type="button" className="secondary" disabled={ocupado === g.id} onClick={() => void ejecutar(g, cerrarGerenciamiento)}>Cerrar</button>
                             )}
-                            {!(puedeAutorizar && g.autorizacion === "pendiente") && !puedeCerrar && "—"}
+                            {g.parteId && <Link className="secondary enlace-boton" to={`/partes/${g.parteId}`}>Ver parte</Link>}
+                            {(puedeAutorizar || (g.creadoPor === operador?.operadorId && g.autorizacion === "pendiente")) && (
+                              <BotonEliminar
+                                tipo="el gerenciamiento"
+                                nombre={`#${g.id} · ${g.vehiculo} · ${g.origen} → ${g.destino}`}
+                                consecuencias={["Si pertenecía a un parte diario, el parte deja de incluirlo.", "Los datos de Strix del vehículo se vuelven a repartir entre los otros viajes."]}
+                                onEliminar={async () => { await eliminarGerenciamiento(g.id); await refresh(); }}
+                              />
+                            )}
                           </td>
                         </tr>
                       );

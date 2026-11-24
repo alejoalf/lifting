@@ -1,5 +1,7 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { formatFecha } from "../../lib/registros";
+import { getSupabase } from "../../lib/supabase";
+import { guardarDatosConductor } from "../../lib/checklistVehicular";
 import {
   ESTADOS_REQUISITO, FORMATOS_ARCHIVO, abrirArchivo, editarDocumento, eliminarDocumento,
   guardarDocumento, habilitacionesDe, leerDocumentoConIA, nombreActividad, subirArchivo, useLecturaIADisponible, useLegajos,
@@ -88,7 +90,7 @@ function Documentos({ datos, gestor, ocupado, onEditar, onEliminar }: {
         <tbody>
           {datos.documentos.map((d) => (
             <tr key={d.id}>
-              <td>{tipo(d.tipo_documento_id)}</td>
+              <td>{tipo(d.tipo_documento_id)}{d.clase && <small> · Clase {d.clase}</small>}</td>
               <td>{d.fecha_emision ? formatFecha(d.fecha_emision) : "—"}</td>
               <td>{d.vencimiento ? formatFecha(d.vencimiento) : "No vence"}</td>
               <td>
@@ -129,6 +131,7 @@ function FormDocumentoLegajo({ datos, operadorId, gestor, editando, onCancelar, 
   const [tipoId, setTipoId] = useState(editando?.tipo_documento_id ?? "");
   const [fechaEmision, setFechaEmision] = useState(editando?.fecha_emision ?? "");
   const [vencimiento, setVencimiento] = useState(editando?.vencimiento ?? "");
+  const [clase, setClase] = useState(editando?.clase ?? "");
   const [lectura, setLectura] = useState<LecturaIA | null>(null);
   const [ocupado, setOcupado] = useState<"" | "leyendo" | "guardando">("");
   const [error, setError] = useState("");
@@ -137,6 +140,7 @@ function FormDocumentoLegajo({ datos, operadorId, gestor, editando, onCancelar, 
 
   const tipos = datos.tipos.filter((t) => t.activo || t.id === editando?.tipo_documento_id);
   const requiereVencimiento = tipos.find((t) => t.id === tipoId)?.requiere_vencimiento ?? true;
+  const conClase = tipos.find((t) => t.id === tipoId)?.con_clase === true;
 
   async function asegurarSubida(elegido: File) {
     if (path) return path;
@@ -178,6 +182,7 @@ function FormDocumentoLegajo({ datos, operadorId, gestor, editando, onCancelar, 
         vencimiento: requiereVencimiento ? vencimiento : "",
         path: archivo ? await asegurarSubida(archivo) : "",
         archivoNombre: archivo?.name ?? "",
+        clase: conClase ? clase : "",
       };
       const estado = gestor ? "aprobado" : "en revisión hasta que Base lo apruebe";
       if (editando) {
@@ -191,6 +196,7 @@ function FormDocumentoLegajo({ datos, operadorId, gestor, editando, onCancelar, 
       setTipoId("");
       setFechaEmision("");
       setVencimiento("");
+      setClase("");
       setLectura(null);
       setVersion((n) => n + 1);
       await onGuardado(`Documento cargado. Queda ${estado}.`);
@@ -233,6 +239,11 @@ function FormDocumentoLegajo({ datos, operadorId, gestor, editando, onCancelar, 
             <input type="date" value={vencimiento} onChange={(e) => setVencimiento(e.target.value)} required />
           </label>
         )}
+        {conClase && (
+          <label>Clase <small>(ej. C, E1)</small>
+            <input value={clase} onChange={(e) => setClase(e.target.value)} required />
+          </label>
+        )}
       </div>
       {lectura?.legible && (
         <p className="aviso-local" role="status">
@@ -262,6 +273,82 @@ function FormDocumentoLegajo({ datos, operadorId, gestor, editando, onCancelar, 
         </button>
       </div>
     </form>
+  );
+}
+
+/** DNI y N° de legajo del operador. Los usan el checklist vehicular y sus constancias. */
+function DatosPersonales({ operadorId }: { operadorId: string }) {
+  const [datos, setDatos] = useState<{ dni: string; nroLegajo: string } | null>(null);
+  const [editando, setEditando] = useState(false);
+  const [dni, setDni] = useState("");
+  const [legajo, setLegajo] = useState("");
+  const [error, setError] = useState("");
+  const [aviso, setAviso] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    let activo = true;
+    getSupabase().from("operadores").select("dni, nro_legajo").eq("id", operadorId).maybeSingle().then(({ data, error: fallo }) => {
+      if (!activo) return;
+      if (fallo) return setError(fallo.message);
+      const valores = { dni: String(data?.dni ?? ""), nroLegajo: String(data?.nro_legajo ?? "") };
+      setDatos(valores);
+      setDni(valores.dni);
+      setLegajo(valores.nroLegajo);
+    });
+    return () => { activo = false; };
+  }, [operadorId]);
+
+  async function guardar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setAviso("");
+    setGuardando(true);
+    try {
+      await guardarDatosConductor(dni, legajo, operadorId);
+      setDatos({ dni: dni.replace(/\./g, "").trim(), nroLegajo: legajo.trim() });
+      setEditando(false);
+      setAviso("Datos guardados.");
+    } catch (fallo) {
+      setError(fallo instanceof Error ? fallo.message : "No se pudieron guardar los datos.");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <section className="panel">
+      <h2 className="panel-header panel-header-fila">
+        Datos personales
+        {datos && !editando && <button type="button" className="secondary" onClick={() => setEditando(true)}>Editar</button>}
+      </h2>
+      <div className="panel-body">
+        {!datos ? (
+          error ? <p className="error" role="alert">{error}</p> : <p className="estado">Cargando…</p>
+        ) : editando ? (
+          <form onSubmit={guardar}>
+            <div className="form-grid">
+              <label>DNI<input value={dni} inputMode="numeric" onChange={(e) => setDni(e.target.value)} required /></label>
+              <label>N° de legajo <small>(opcional)</small><input value={legajo} onChange={(e) => setLegajo(e.target.value)} /></label>
+            </div>
+            {error && <p className="error" role="alert">{error}</p>}
+            <div className="actions">
+              <button type="button" className="secondary" onClick={() => setEditando(false)}>Cancelar</button>
+              <button type="submit" className="primary inline" disabled={guardando}>{guardando ? "Guardando…" : "Guardar"}</button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <dl className="detalle">
+              <div><dt>DNI</dt><dd>{datos.dni || "Sin cargar"}</dd></div>
+              <div><dt>N° de legajo</dt><dd>{datos.nroLegajo || "—"}</dd></div>
+            </dl>
+            {aviso && <p className="exito" role="status">{aviso}</p>}
+          </>
+        )}
+        <p className="ayuda">Las licencias y habilitaciones que se cargan acá son las que usan el checklist vehicular, el parte diario y el resto de la app.</p>
+      </div>
+    </section>
   );
 }
 
@@ -297,6 +384,7 @@ export function LegajoOperador({ operadorId, gestor }: { operadorId: string; ges
   return (
     <>
       {error && <p className="error" role="alert">{error}</p>}
+      <DatosPersonales operadorId={operadorId} />
       <section className="panel">
         <h2 className="panel-header">Habilitaciones por actividad</h2>
         <div className="panel-body">

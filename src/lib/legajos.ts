@@ -11,6 +11,8 @@ export interface TipoDocumento {
   nombre: string;
   requiere_vencimiento: boolean;
   activo: boolean;
+  /** Licencias con clase (ej. C, E1). */
+  con_clase?: boolean;
 }
 
 export interface Actividad {
@@ -44,6 +46,8 @@ export interface DocumentoLegajo {
   tipo_documento_id: string;
   fecha_emision: string | null;
   vencimiento: string | null;
+  /** Clase de la licencia (solo tipos con clase). */
+  clase: string | null;
   archivo_path: string;
   archivo_nombre: string;
   estado: "pendiente" | "aprobado" | "rechazado";
@@ -216,6 +220,7 @@ export async function guardarDocumento(documento: {
   path: string;
   archivoNombre: string;
   lectura: LecturaIA | null;
+  clase?: string;
 }) {
   const { error } = await getSupabase().from("documentos_legajo").insert({
     operador_id: documento.operadorId,
@@ -225,6 +230,7 @@ export async function guardarDocumento(documento: {
     archivo_path: documento.path,
     archivo_nombre: documento.archivoNombre,
     lectura_ia: documento.lectura,
+    clase: documento.clase?.trim() || null,
   });
   if (error) throw new Error(error.message);
 }
@@ -241,6 +247,7 @@ export async function editarDocumento(documento: DocumentoLegajo, cambios: {
   vencimiento: string;
   path: string;
   archivoNombre: string;
+  clase?: string;
 }) {
   const { error } = await getSupabase().rpc("editar_documento_legajo", {
     p_documento_id: documento.id,
@@ -249,6 +256,7 @@ export async function editarDocumento(documento: DocumentoLegajo, cambios: {
     p_vencimiento: cambios.vencimiento || null,
     p_archivo_path: cambios.path || null,
     p_archivo_nombre: cambios.path ? cambios.archivoNombre : null,
+    p_clase: cambios.clase ?? null,
   });
   if (error) throw new Error(error.message);
   if (cambios.path) await borrarArchivo(documento.archivo_path);

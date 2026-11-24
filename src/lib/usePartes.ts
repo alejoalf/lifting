@@ -19,6 +19,20 @@ export interface NuevoParte {
   destino: string;
   kmInicial: number;
   observaciones: string;
+  /** Dónde se abre el parte: GPS del teléfono o un tramo de la matriz de riesgos. */
+  ubicacion: { latitud: number; longitud: number; precision: number } | { tramoId: string } | null;
+  /** ATS armado con la matriz y, en izaje y altura, la evaluación de viento del equipo del vehículo. */
+  riesgo: {
+    ats: string;
+    /** El operador leyó el ATS y da conformidad (obligatorio si hay ATS). */
+    conformidad: boolean;
+    equipo_id?: string;
+    estado?: "habilitado" | "precaucion" | "suspendido";
+    viento?: number | null;
+    rafaga?: number | null;
+    motivos?: string[];
+    momento?: number;
+  } | null;
 }
 
 const estados: Record<string, EstadoParte> = {
@@ -177,6 +191,11 @@ export async function crearParte(input: NuevoParte) {
     p_destino: input.destino,
     p_km_inicial: input.kmInicial,
     p_observaciones: input.observaciones,
+    p_latitud: input.ubicacion && "latitud" in input.ubicacion ? input.ubicacion.latitud : null,
+    p_longitud: input.ubicacion && "longitud" in input.ubicacion ? input.ubicacion.longitud : null,
+    p_precision: input.ubicacion && "precision" in input.ubicacion ? input.ubicacion.precision : null,
+    p_tramo_id: input.ubicacion && "tramoId" in input.ubicacion ? input.ubicacion.tramoId : null,
+    p_riesgo: input.riesgo,
   });
   if (error) throw new Error(mensajeDeError(error));
   if (!Array.isArray(data) || !isRecord(data[0]) || typeof data[0].parte_id !== "string") {
@@ -209,3 +228,198 @@ export const cerrarParte = (id: string, cierre: { kmFinal: number; horas: number
 
 /** Supervisor o Admin: firma un parte cerrado. */
 export const firmarParte = (id: string) => accionParte("firmar_parte_diario", { p_id: id });
+
+/// ---------- Resumen del parte: riesgo, ATS, trabajos (gerenciamientos), checklist y Strix ----------
+// (ver migraciones 20261124140000_parte_ubicacion_riesgo y 20261125110000_parte_gerenciamientos)
+
+export interface RiesgoParte {
+  latitud: number | null;
+  longitud: number | null;
+  precision: number | null;
+  origen: "gps" | "tramo" | null;
+  tramo: string;
+  equipo: string;
+  estado: "habilitado" | "precaucion" | "suspendido" | "sin-datos" | null;
+  motivos: string[];
+  viento: number | null;
+  rafaga: number | null;
+  nivel: string;
+  climaMomento: string;
+}
+
+/** Un trabajo (gerenciamiento) del parte, con su checklist y sus datos de Strix. */
+export interface TrabajoParte {
+  id: number;
+  fechaSalida: string;
+  horaSalida: string;
+  fechaLlegada: string;
+  horaLlegada: string;
+  origen: string;
+  destino: string;
+  distanciaKm: number | null;
+  conductor: string;
+  autorizacion: string;
+  estado: string;
+  responsable: string;
+  strixRecorridos: number | null;
+  strixKm: number | null;
+  strixHorasMarcha: number | null;
+  strixHorasRalenti: number | null;
+  strixVelocidadMaxima: number | null;
+  strixExcesos: number | null;
+  checklistId: number | null;
+  checklistApto: boolean | null;
+  checklistEn: string;
+  checklistUsuario: string;
+}
+
+export interface ResumenParte {
+  riesgo: RiesgoParte;
+  ats: string;
+  /** Cuándo el operador dio conformidad con el ATS ("" si no corresponde). */
+  conformidadEn: string;
+  trabajos: TrabajoParte[];
+  strix: {
+    vinculados: number;
+    km: number | null;
+    horasMarcha: number | null;
+    horasRalenti: number | null;
+    velocidadMaxima: number | null;
+    excesos: number | null;
+  };
+}
+
+const num = (v: unknown) => (v === null || v === undefined || v === "" ? null : Number(v));
+const obj = (v: unknown) => (isRecord(v) ? v : {});
+
+function aResumen(data: unknown): ResumenParte | null {
+  if (!isRecord(data)) return null;
+  const r = obj(data.riesgo);
+  const s = obj(data.strix);
+  return {
+    riesgo: {
+      latitud: num(r.latitud),
+      longitud: num(r.longitud),
+      precision: num(r.precision_m),
+      origen: r.origen === "gps" || r.origen === "tramo" ? r.origen : null,
+      tramo: texto(r, "tramo"),
+      equipo: texto(r, "equipo"),
+      estado: ["habilitado", "precaucion", "suspendido", "sin-datos"].includes(String(r.estado)) ? r.estado as RiesgoParte["estado"] : null,
+      motivos: Array.isArray(r.motivos) ? r.motivos.map(String) : [],
+      viento: num(r.viento_kmh),
+      rafaga: num(r.rafaga_kmh),
+      nivel: texto(r, "nivel_riesgo"),
+      climaMomento: texto(r, "clima_momento"),
+    },
+    ats: typeof data.ats === "string" ? data.ats : "",
+    conformidadEn: texto(data, "conformidad_en"),
+    trabajos: (Array.isArray(data.gerenciamientos) ? data.gerenciamientos : []).filter(isRecord).map((g) => ({
+      id: Number(g.id),
+      fechaSalida: texto(g, "fecha_salida"),
+      horaSalida: texto(g, "hora_salida"),
+      fechaLlegada: texto(g, "fecha_llegada"),
+      horaLlegada: texto(g, "hora_llegada"),
+      origen: texto(g, "origen"),
+      destino: texto(g, "destino"),
+      distanciaKm: num(g.distancia_km),
+      conductor: texto(g, "conductor"),
+      autorizacion: texto(g, "autorizacion"),
+      estado: texto(g, "estado"),
+      responsable: texto(g, "responsable"),
+      strixRecorridos: num(g.strix_recorridos),
+      strixKm: num(g.strix_km),
+      strixHorasMarcha: num(g.strix_horas_marcha),
+      strixHorasRalenti: num(g.strix_horas_ralenti),
+      strixVelocidadMaxima: num(g.strix_velocidad_maxima),
+      strixExcesos: num(g.strix_excesos),
+      checklistId: num(g.checklist_id),
+      checklistApto: typeof g.checklist_apto === "boolean" ? g.checklist_apto : null,
+      checklistEn: texto(g, "checklist_en"),
+      checklistUsuario: texto(g, "checklist_usuario"),
+    })),
+    strix: {
+      vinculados: Number(s.vinculados) || 0,
+      km: num(s.km),
+      horasMarcha: num(s.horas_marcha),
+      horasRalenti: num(s.horas_ralenti),
+      velocidadMaxima: num(s.velocidad_maxima),
+      excesos: num(s.excesos),
+    },
+  };
+}
+
+/** Resumen del parte. undefined mientras carga; null si no existe o no se puede ver. */
+export function useResumenParte(id: string) {
+  const [resumen, setResumen] = useState<ResumenParte | null | undefined>(undefined);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!id) return;
+    let activo = true;
+    getSupabase().rpc("resumen_parte", { p_id: id }).then(({ data, error: fallo }) => {
+      if (!activo) return;
+      if (fallo) {
+        setError(mensajeDeError(fallo));
+        setResumen(null);
+        return;
+      }
+      setError("");
+      setResumen(aResumen(data));
+    });
+    return () => { activo = false; };
+  }, [id]);
+
+  return { resumen, error };
+}
+
+/** Equipo de la matriz de riesgos vinculado al vehículo (null si no tiene). */
+export function useEquipoDeVehiculo(vehiculoId: string) {
+  const [equipoId, setEquipoId] = useState<string | null | undefined>(undefined);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!vehiculoId) { setEquipoId(undefined); return; }
+    let activo = true;
+    setEquipoId(undefined);
+    getSupabase().rpc("equipo_riesgo_vehiculo", { p_vehiculo_id: vehiculoId }).then(({ data, error: fallo }) => {
+      if (!activo) return;
+      if (fallo) {
+        setError(mensajeDeError(fallo));
+        setEquipoId(null);
+        return;
+      }
+      setError("");
+      setEquipoId(typeof data === "string" && data ? data : null);
+    });
+    return () => { activo = false; };
+  }, [vehiculoId]);
+
+  return { equipoId, error };
+}
+
+/** Parte en curso del vehículo: el gerenciamiento se vincula a él. undefined mientras carga. */
+export interface ParteAbierto { id: string; numero: number; operador: string; clienteId: string; contratoId: string }
+
+export function useParteAbiertoVehiculo(vehiculoId: string) {
+  const [parte, setParte] = useState<ParteAbierto | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!vehiculoId) { setParte(undefined); return; }
+    let activo = true;
+    setParte(undefined);
+    getSupabase().rpc("parte_abierto_vehiculo", { p_vehiculo_id: vehiculoId }).then(({ data, error }) => {
+      if (!activo) return;
+      const f = !error && Array.isArray(data) && isRecord(data[0]) ? data[0] : null;
+      setParte(f ? {
+        id: texto(f, "id"),
+        numero: Number(f.nro_parte),
+        operador: texto(f, "operador"),
+        clienteId: texto(f, "cliente_id"),
+        contratoId: texto(f, "contrato_id"),
+      } : null);
+    });
+    return () => { activo = false; };
+  }, [vehiculoId]);
+
+  return parte;
+}

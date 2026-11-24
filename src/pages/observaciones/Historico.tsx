@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { contiene, formatFecha } from "../../lib/registros";
-import { TIPOS_OBSERVACION, cerrarObservacion, useObservaciones } from "../../lib/operaciones";
+import { TIPOS_OBSERVACION, cerrarObservacion, eliminarObservacion, useObservaciones } from "../../lib/operaciones";
+import { BotonEliminar } from "../../components/ui/BotonEliminar";
 
 const filtrosVacios = {
   id: "", desde: "", hasta: "", tipo: "", riesgo: "", seguimiento: "", estado: "",
@@ -102,7 +103,7 @@ export default function HistoricoObservaciones() {
                   <tr>
                     <th>ID</th><th>Reportado por</th><th>Tipo</th><th>Fecha detección</th><th>Distrito</th><th>Línea / sector</th>
                     <th>Cliente</th><th>Lugar específico</th><th>Riesgo</th><th>Necesita seguimiento</th><th>Estado</th>
-                    {puedeCerrar && <th>Acciones</th>}
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -119,13 +120,18 @@ export default function HistoricoObservaciones() {
                       <td className={claseRiesgo[o.riesgo]}>{o.riesgo}</td>
                       <td className={o.seguimiento ? "texto-aviso" : "texto-alto"}>{o.seguimiento ? "Sí" : "No"}</td>
                       <td className={o.estado === "cerrada" ? "texto-ok" : "texto-aviso"}>{o.estado === "cerrada" ? "Cerrada" : "Abierta"}</td>
-                      {puedeCerrar && (
-                        <td>
-                          {o.estado === "abierta"
-                            ? <button type="button" className="secondary" disabled={ocupado === o.id} onClick={() => void cerrar(o.id)}>Cerrar</button>
-                            : "—"}
-                        </td>
-                      )}
+                      <td>
+                        {puedeCerrar && o.estado === "abierta" && (
+                          <button type="button" className="secondary" disabled={ocupado === o.id} onClick={() => void cerrar(o.id)}>Cerrar</button>
+                        )}
+                        {(puedeCerrar || (o.creadoPor === operador?.operadorId && o.estado === "abierta")) ? (
+                          <BotonEliminar
+                            tipo="la tarjeta de observación"
+                            nombre={`#${o.id} · ${o.lugar}`}
+                            onEliminar={async () => { await eliminarObservacion(o.id); await refresh(); }}
+                          />
+                        ) : !(puedeCerrar && o.estado === "abierta") && "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

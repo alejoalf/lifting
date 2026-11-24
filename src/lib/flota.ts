@@ -43,7 +43,22 @@ const ETIQUETAS: Record<string, string> = {
   venc_patente: "Vencimiento patente",
   ultimo_service: "Último service",
   proximo_service: "Próximo service",
+  tipo_flota: "Tipo de flota (checklist)",
+  riesgo_equipo_id: "Equipo en la matriz de riesgos",
 };
+
+/** Equipos de la matriz de riesgos, para vincularlos con los vehículos. */
+export function useEquiposRiesgo() {
+  const [equipos, setEquipos] = useState<{ id: string; nombre: string; activo: boolean }[]>([]);
+  useEffect(() => {
+    let activo = true;
+    getSupabase().from("riesgo_equipos").select("id, nombre, activo").order("orden").order("nombre").then(({ data }) => {
+      if (activo) setEquipos((data ?? []).map((e) => ({ id: String(e.id), nombre: String(e.nombre), activo: e.activo === true })));
+    });
+    return () => { activo = false; };
+  }, []);
+  return equipos;
+}
 
 export function etiquetaColumna(columna: string) {
   return ETIQUETAS[columna] ?? columna.replace(/_/g, " ").replace(/^./, (letra) => letra.toUpperCase());

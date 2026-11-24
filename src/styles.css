@@ -555,6 +555,53 @@ label small { color: var(--muted); font-weight: 400; }
 .checklist-resultado li:last-child { border-bottom: 0; }
 .checklist-subtitulo { margin: 1.25rem 0 .35rem; font-size: 1rem; }
 
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Checklist por flota: referencias ✓ R X O F N/A, condicionantes, precarga y neumáticos */
+.segmento-opciones.seis { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.segmento-opciones.seis .segmento-opcion { min-height: 2.5rem; font-size: .88rem; }
+@media (max-width: 34rem) { .segmento-opciones.seis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.segmento-opcion.segmento-optimo.is-active { color: #fff; background: var(--ok); }
+.segmento-opcion.segmento-regular.is-active, .segmento-opcion.segmento-observacion.is-active { color: #1a2024; background: var(--hi-vis); }
+.segmento-opcion.segmento-falta.is-active { color: #fff; background: var(--header-borde); }
+.segmento-opcion.segmento-na.is-active { color: #fff; background: var(--muted); }
+.checklist-items li.es-condicionante { border-left: 5px solid var(--hi-vis); }
+.etiqueta-condicionante { display: inline-block; margin-left: .5rem; padding: 0 .45rem; border-radius: 4px; color: #1a2024; background: var(--hi-vis); font-size: .72rem; font-weight: 700; letter-spacing: .03em; vertical-align: middle; }
+.marca-condicionante { color: var(--aviso); }
+.nota-item { margin: 0 0 .35rem; font-size: .85rem; }
+.etiqueta-dato { display: block; color: var(--muted); font-size: .85rem; }
+.dato-fijo { margin: .25rem 0 1rem; min-height: 2.5rem; display: flex; align-items: center; font-weight: 600; }
+.chip.flota-pesada { background: var(--acero); } .chip.flota-liviana { background: var(--header-borde); }
+.docs-editor { display: grid; gap: .5rem; margin-bottom: 1rem; }
+.doc-fila { display: grid; grid-template-columns: minmax(12rem, 2fr) repeat(auto-fit, minmax(9rem, 1fr)); gap: 0 .75rem; align-items: end; padding: .5rem .75rem; border: 1px solid var(--line); border-radius: 8px; }
+.doc-fila.es-condicionante { border-left: 5px solid var(--hi-vis); }
+.doc-fila label { margin-bottom: 0; }
+.doc-fila .check { min-height: 3rem; }
+.doc-nombre { align-self: center; font-weight: 500; }
+@media (max-width: 34rem) { .doc-fila { grid-template-columns: 1fr; } }
+.neumatico { margin-bottom: .75rem; padding: .6rem .75rem 0; border: 1px solid var(--line); border-radius: 8px; }
+.neumatico h4 { margin: 0 0 .4rem; font-size: 1rem; }
+.neumatico.checklist-falla { border-color: var(--alto); background: color-mix(in srgb, var(--alto) 6%, var(--surface)); }
+.aviso-local.aviso-falla { border-left-color: var(--alto); background: color-mix(in srgb, var(--alto) 8%, var(--surface)); }
+.aviso-local.aviso-ok { border-left-color: var(--ok); background: color-mix(in srgb, var(--ok) 10%, var(--surface)); }
+.aviso-local p { margin: 0 0 .4rem; } .aviso-local ul { margin: 0 0 .5rem; padding-left: 1.2rem; }
+.lista-fallas { margin: 0; padding-left: 1.2rem; color: var(--alto); }
+.declaracion { margin: 1rem 0; font-weight: 500; }
+.referencias { font-size: .9rem; }
+.checklist-firma { display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 2rem; margin: 1rem 0 1rem; }
+@media (max-width: 34rem) { .checklist-firma { grid-template-columns: 1fr; gap: 1.25rem; } }
+.segmento-opcion.is-disabled { opacity: .4; cursor: not-allowed; }
+.dimension { min-width: 0; margin: 0 0 1rem; padding: 0; border: 0; }
+.dimension legend { padding: 0; }
+.dimension-campos { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: .35rem; }
+.dimension-campos span { font-weight: 600; color: var(--muted); }
+.lista-documentos li { align-items: center; flex-wrap: wrap; }
+.lista-documentos li.es-condicionante { padding-left: .6rem; border-left: 4px solid var(--hi-vis); }
+.doc-estado { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .5rem; }
+.doc-estado .check { margin: 0; font-size: .9rem; }
+.cargar-legajo { flex-basis: 100%; margin-top: .5rem; padding: .75rem; border: 1px dashed var(--line); border-radius: 8px; }
+.ats p { margin: 0 0 .3rem; }
+
 /* ---- Adaptación a teléfonos ---- */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 img { max-width: 100%; }
@@ -759,3 +806,14 @@ ul.lista-riesgos { padding-left: 0; list-style: none; }
 .login-resumen div { display: flex; justify-content: space-between; gap: 1rem; }
 .login-resumen dt { color: #74817b; font-size: .85rem; }
 .login-resumen dd { margin: 0; color: #20342b; font-weight: 600; }
+
+/* Configuración de documentos del checklist */
+.tabla-config td { vertical-align: middle; }
+.tabla-config .select-tabla { min-height: 2.4rem; margin: 0; padding: .3rem .5rem; font-size: .9rem; }
+.tabla-config input.select-tabla { width: 9rem; }
+.tabla .centro { text-align: center; }
+.tabla tr.fila-cambiada { background: color-mix(in srgb, var(--hi-vis) 14%, var(--surface)) !important; }
+
+/* Página pública del enlace del mail */
+.pagina-publica { min-height: 100vh; padding: 2rem 1rem; background: var(--ripio); }
+.pagina-publica h1.panel-header { font-size: 1.15rem; }

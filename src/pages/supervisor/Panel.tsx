@@ -68,7 +68,7 @@ export default function SupervisorPanel() {
         <section className="panel dashboard-priority">
           <h2 className="panel-header">Pedidos de salida excepcional</h2>
           <div className="panel-body">
-            <p className="ayuda">Unidades con documentación vencida. Solo un administrador puede autorizar o frenar la salida.</p>
+            <p className="ayuda">Unidades con documentación vencida o con la matriz de riesgos en «suspender». Solo un administrador puede autorizar o frenar la salida.</p>
             <TablaPartes partes={excepciones} mostrarOperador />
           </div>
         </section>
