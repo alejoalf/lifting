@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { getSupabase } from "./supabase";
+import { anularRegistro, getSupabase } from "./supabase";
 import { formatFecha } from "./registros";
+import { aAnulacion, type Anulacion } from "../components/ui/BotonAnular";
 
 // Caja y gastos (Supabase, solo Admin): ingresos y egresos con categoría,
 // circuito y vínculo opcional a un vehículo, un cliente o un proveedor.
@@ -30,9 +31,12 @@ export interface Movimiento {
   vehiculo_id: string | null;
   cliente_id: string | null;
   proveedor_id: string | null;
+  /** Los movimientos anulados quedan en el libro pero no suman. */
+  anulacion: Anulacion | null;
 }
 
-export interface Opcion { id: string; nombre: string }
+/** `activo` false = desactivado o dado de baja: no se ofrece en movimientos nuevos, pero se sigue mostrando. */
+export interface Opcion { id: string; nombre: string; activo?: boolean }
 
 export interface DatosCaja {
   movimientos: Movimiento[];
@@ -65,6 +69,7 @@ function aMovimiento(fila: Record<string, unknown>): Movimiento {
     vehiculo_id: idOpcional(fila.vehiculo_id),
     cliente_id: idOpcional(fila.cliente_id),
     proveedor_id: idOpcional(fila.proveedor_id),
+    anulacion: aAnulacion(fila),
   };
 }
 
@@ -88,18 +93,18 @@ export function useCaja() {
     try {
       const [movimientos, vehiculos, clientes, proveedores] = await Promise.all([
         supabase.from("caja_gastos").select("*").order("fecha", { ascending: false }).order("created_at", { ascending: false }),
-        supabase.from("vehiculos").select("id, dominio").order("dominio"),
-        supabase.from("clientes").select("id, razon_social").order("razon_social"),
+        supabase.from("vehiculos").select("id, dominio, estado").order("dominio"),
+        supabase.from("clientes").select("id, razon_social, activo").order("razon_social"),
         supabase.from("proveedores").select("*"),
       ]);
       const fallo = [movimientos, vehiculos, clientes, proveedores].find((r) => r.error)?.error;
       if (fallo) throw new Error(fallo.message);
       setDatos({
         movimientos: (movimientos.data ?? []).map(aMovimiento),
-        vehiculos: (vehiculos.data ?? []).map((v) => ({ id: String(v.id), nombre: textoOVacio(v.dominio) || "Sin dominio" })),
-        clientes: (clientes.data ?? []).map((c) => ({ id: String(c.id), nombre: textoOVacio(c.razon_social) || "Sin razón social" })),
+        vehiculos: (vehiculos.data ?? []).map((v) => ({ id: String(v.id), nombre: textoOVacio(v.dominio) || "Sin dominio", activo: v.estado !== "Baja" })),
+        clientes: (clientes.data ?? []).map((c) => ({ id: String(c.id), nombre: textoOVacio(c.razon_social) || "Sin razón social", activo: c.activo !== false })),
         proveedores: (proveedores.data ?? [])
-          .map((p) => ({ id: String(p.id), nombre: nombreProveedor(p) }))
+          .map((p) => ({ id: String(p.id), nombre: nombreProveedor(p), activo: p.activo !== false }))
           .sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
       });
       setError("");
@@ -113,7 +118,7 @@ export function useCaja() {
   return { datos, error, refresh };
 }
 
-export type DatosMovimiento = Omit<Movimiento, "id">;
+export type DatosMovimiento = Omit<Movimiento, "id" | "anulacion">;
 
 /** Crea (id null) o modifica un movimiento. Devuelve su id. */
 export async function guardarMovimiento(id: string | null, movimiento: DatosMovimiento) {
@@ -125,10 +130,7 @@ export async function guardarMovimiento(id: string | null, movimiento: DatosMovi
   return String(respuesta.data.id);
 }
 
-export async function eliminarMovimiento(id: string) {
-  const { error } = await getSupabase().from("caja_gastos").delete().eq("id", id);
-  if (error) throw new Error(mensajeError(error.message));
-}
+export const anularMovimiento = (id: string, motivo: string) => anularRegistro("caja_gastos", id, motivo);
 
 function mensajeError(mensaje: string) {
   if (/row-level security|permission denied/i.test(mensaje)) return "Solo un administrador puede modificar la caja.";
@@ -150,6 +152,7 @@ export function totales(movimientos: Movimiento[]): Totales {
   let ingresos = 0;
   let egresos = 0;
   for (const m of movimientos) {
+    if (m.anulacion) continue;
     if (m.tipo === "Ingreso") ingresos += m.monto;
     else if (m.tipo === "Egreso") egresos += m.monto;
   }
@@ -163,6 +166,7 @@ export function porCategoria(movimientos: Movimiento[]): ResumenCategoria[] {
   const { ingresos, egresos } = totales(movimientos);
   const grupos = new Map<string, ResumenCategoria>();
   for (const m of movimientos) {
+    if (m.anulacion) continue;
     const categoria = m.categoria ?? "Sin categoría";
     const clave = `${m.tipo ?? ""}|${categoria}`;
     const grupo = grupos.get(clave) ?? { categoria, tipo: m.tipo, cantidad: 0, total: 0, porcentaje: 0 };
@@ -207,7 +211,7 @@ export function descargarCsv(movimientos: Movimiento[], datos: DatosCaja, nombre
   const nombre = (lista: Opcion[], id: string | null) => (id ? lista.find((o) => o.id === id)?.nombre ?? "" : "");
   const celda = (valor: string) => (/[";\n]/.test(valor) ? `"${valor.replace(/"/g, '""')}"` : valor);
   const filas = [
-    ["N°", "Fecha", "Tipo", "Categoría", "Concepto", "Monto", "Circuito", "Comprobante", "Vehículo", "Cliente", "Proveedor"],
+    ["N°", "Fecha", "Tipo", "Categoría", "Concepto", "Monto", "Circuito", "Comprobante", "Vehículo", "Cliente", "Proveedor", "Anulado (motivo)"],
     ...movimientos.map((m) => [
       numeroMovimiento(m.id),
       m.fecha ? formatFecha(m.fecha) : "",
@@ -220,6 +224,7 @@ export function descargarCsv(movimientos: Movimiento[], datos: DatosCaja, nombre
       nombre(datos.vehiculos, m.vehiculo_id),
       nombre(datos.clientes, m.cliente_id),
       nombre(datos.proveedores, m.proveedor_id),
+      m.anulacion?.motivo ?? "",
     ]),
   ];
   const contenido = "﻿" + filas.map((fila) => fila.map(celda).join(";")).join("\r\n");

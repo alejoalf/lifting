@@ -2,11 +2,12 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { BotonVerArchivo } from "../../components/legajo/LegajoOperador";
 import { TiposDocumento } from "../../components/legajo/TiposDocumento";
+import { BotonAnular } from "../../components/ui/BotonAnular";
 import { StatusChip } from "../../components/ui/StatusChip";
 import { contiene, formatFecha, semaforoDe } from "../../lib/registros";
 import { FORMATOS_ARCHIVO } from "../../lib/legajos";
 import {
-  eliminarDocumentoVehiculo, eliminarVehiculo, estadoDocumental, etiquetaColumna, guardarDocumentoVehiculo,
+  anularDocumentoVehiculo, estadoDocumental, etiquetaColumna, guardarDocumentoVehiculo,
   guardarVehiculo, texto, useColumnasVehiculo, useEquiposRiesgo, useFlota,
   type ColumnaVehiculo, type DatosFlota, type DocumentoVehiculo, type Vehiculo,
 } from "../../lib/flota";
@@ -281,11 +282,6 @@ function DocumentosVehiculo({ datos, vehiculoId, onCambio }: {
     }), editando ? "Documento actualizado." : "Documento cargado.");
   }
 
-  function eliminar(documento: DocumentoVehiculo) {
-    if (!window.confirm(`¿Eliminar "${nombreTipo(documento.tipo_documento_id)}"? El archivo también se borra y no se puede recuperar.`)) return;
-    void ejecutar(() => eliminarDocumentoVehiculo(documento), "Documento eliminado.");
-  }
-
   return (
     <section className="panel">
       <h2 className="panel-header">Documentos del vehículo</h2>
@@ -298,17 +294,24 @@ function DocumentosVehiculo({ datos, vehiculoId, onCambio }: {
               <thead><tr><th>Documento</th><th>Emisión</th><th>Vencimiento</th><th>Cargado</th><th>Archivo</th><th>Acciones</th></tr></thead>
               <tbody>
                 {documentos.map((d) => (
-                  <tr key={d.id}>
-                    <td>{nombreTipo(d.tipo_documento_id)}</td>
+                  <tr key={d.id} className={d.anulado_en ? "fila-anulada" : undefined}>
+                    <td>
+                      {nombreTipo(d.tipo_documento_id)}
+                      {d.anulado_en && <><br /><span className="chip anulado">Anulado</span> <small>Motivo: {d.motivo_anulacion}</small></>}
+                    </td>
                     <td>{d.fecha_emision ? formatFecha(d.fecha_emision) : "—"}</td>
-                    <td>{d.vencimiento ? <FechaConEstado fecha={d.vencimiento} /> : "No vence"}</td>
+                    <td>{d.vencimiento ? (d.anulado_en ? formatFecha(d.vencimiento) : <FechaConEstado fecha={d.vencimiento} />) : "No vence"}</td>
                     <td>{new Date(d.created_at).toLocaleDateString("es-AR")}</td>
                     <td><BotonVerArchivo path={d.archivo_path} bucket="flota" /></td>
                     <td>
-                      <div className="row">
-                        <button type="button" className="secondary" disabled={ocupado} onClick={() => { setAviso(""); cargarEnFormulario(d); }}>Editar</button>
-                        <button type="button" className="secondary peligro" disabled={ocupado} onClick={() => eliminar(d)}>Eliminar</button>
-                      </div>
+                      {!d.anulado_en && (
+                        <div className="row">
+                          <button type="button" className="secondary" disabled={ocupado} onClick={() => { setAviso(""); cargarEnFormulario(d); }}>Editar</button>
+                          <BotonAnular tipo="el documento" nombre={nombreTipo(d.tipo_documento_id)}
+                            consecuencias={["Deja de contar para el estado documental del vehículo. El archivo se conserva."]}
+                            onAnular={async (motivo) => { await anularDocumentoVehiculo(d, motivo); await onCambio(); setAviso("Documento anulado."); }} />
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -361,8 +364,6 @@ export default function Vehiculo() {
   const { datos, error, refresh } = useFlota();
   const { columnas, error: errorColumnas } = useColumnasVehiculo();
   const [aviso, setAviso] = useState("");
-  const [errorBaja, setErrorBaja] = useState("");
-  const [eliminando, setEliminando] = useState(false);
 
   if (error || errorColumnas) return <p className="error" role="alert">{error || errorColumnas}</p>;
   if (!datos || !columnas) return <p className="estado">Cargando vehículo…</p>;
@@ -370,19 +371,6 @@ export default function Vehiculo() {
   const nuevo = vehiculoId === "nuevo";
   const vehiculo = nuevo ? null : datos.vehiculos.find((v) => v.id === vehiculoId) ?? null;
   if (!nuevo && !vehiculo) return <p className="estado">El vehículo no existe. <Link to="/admin">Volver a la flota</Link></p>;
-
-  async function eliminar(actual: Vehiculo) {
-    if (!window.confirm(`¿Quitar ${texto(actual.dominio) || "este vehículo"} de la flota? Se borran también sus documentos y no se puede deshacer.`)) return;
-    setErrorBaja("");
-    setEliminando(true);
-    try {
-      await eliminarVehiculo(actual.id, datos?.documentos ?? []);
-      navigate("/admin");
-    } catch (fallo) {
-      setErrorBaja(fallo instanceof Error ? fallo.message : "No se pudo eliminar el vehículo.");
-      setEliminando(false);
-    }
-  }
 
   return (
     <>
@@ -417,14 +405,9 @@ export default function Vehiculo() {
             <h2 className="panel-header">Quitar de la flota</h2>
             <div className="panel-body">
               <p className="ayuda">
-                Elimina el vehículo y sus documentos. Si ya tiene partes o contratos asociados no se puede eliminar: en ese caso cambiale el estado.
+                Los vehículos no se borran: para sacarlo de la flota cambiale el estado a <strong>Baja</strong> en sus datos.
+                Deja de aparecer para partes y checklists, y conserva todo su historial y documentos.
               </p>
-              {errorBaja && <p className="error" role="alert">{errorBaja}</p>}
-              <div className="actions">
-                <button type="button" className="secondary peligro" disabled={eliminando} onClick={() => void eliminar(vehiculo)}>
-                  {eliminando ? "Eliminando…" : "Eliminar vehículo"}
-                </button>
-              </div>
             </div>
           </section>
         </>

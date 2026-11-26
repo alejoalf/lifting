@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { FormFila, TablaFilas, ZonaEliminar, textoFila } from "../../components/datos/FormFila";
+import { FormFila, TablaFilas, textoFila } from "../../components/datos/FormFila";
 import { contiene } from "../../lib/registros";
 import {
-  certificacionesDe, certificadosDe, eliminarFila, guardarFila, nombreContrato, referencias, texto, useComercial,
+  certificacionesDe, certificadosDe, guardarFila, nombreContrato, referencias, texto, useComercial,
 } from "../../lib/comercial";
 import { CeldaCobro, ChipContrato, TablaCertificados } from "./Clientes";
 
@@ -141,15 +141,9 @@ export function FichaContrato() {
             </div>
           </section>
 
-          <ZonaEliminar
-            titulo="Eliminar contrato"
-            ayuda="Si el contrato tiene certificaciones o partes asociados no se puede eliminar: en ese caso pasalo a Finalizado."
-            confirmacion="¿Eliminar este contrato? No se puede deshacer."
-            eliminar={async () => {
-              await eliminarFila("contratos", contrato.id);
-              navigate("/admin/contratos");
-            }}
-          />
+          <p className="ayuda">
+            Los contratos no se borran: para darlo de baja pasalo a <strong>Finalizado</strong> y destildá <strong>Vigente</strong>.
+          </p>
         </>
       )}
     </>

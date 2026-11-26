@@ -79,7 +79,7 @@ export default function NuevoParte() {
   }
 
   const abierto = partes.find((parte) =>
-    parte.creadoPor === operador.id && parte.estado !== "cerrado" && parte.estado !== "frenado");
+    parte.creadoPor === operador.id && parte.estado !== "cerrado" && parte.estado !== "frenado" && parte.estado !== "anulado");
   if (abierto) {
     return (
       <section className="panel">

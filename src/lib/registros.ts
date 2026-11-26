@@ -13,7 +13,7 @@ export function semaforoDe(vencimiento: string): Semaforo {
 }
 
 /** Tabla 9 de la especificación. "frenado" es la respuesta negativa de Base a una excepción. */
-export type EstadoParte = "pendiente" | "excepcion" | "en_curso" | "frenado" | "cerrado";
+export type EstadoParte = "pendiente" | "excepcion" | "en_curso" | "frenado" | "cerrado" | "anulado";
 
 export interface Parte {
   id: string;
@@ -53,6 +53,7 @@ export const ESTADOS_PARTE: Record<EstadoParte, string> = {
   en_curso: "En curso",
   frenado: "Unidad frenada",
   cerrado: "Cerrado",
+  anulado: "Anulado",
 };
 
 /** Fecha local de hoy en formato AAAA-MM-DD (el que usa <input type="date">). */

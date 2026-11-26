@@ -10,13 +10,14 @@ const siguientePaso: Record<EstadoParte, string> = {
   en_curso: "Operación en curso. Cerrá el servicio al terminar la jornada.",
   frenado: "La salida fue frenada. Contactá al administrador si necesitás revisarlo.",
   cerrado: "",
+  anulado: "",
 };
 
 export default function ChoferInicio() {
   const { operador } = useAuth();
   const { partes, loading, error } = usePartes();
   const propios = partes.filter((p) => p.creadoPor === operador?.id);
-  const abierto = propios.find((p) => p.estado !== "cerrado" && p.estado !== "frenado");
+  const abierto = propios.find((p) => p.estado !== "cerrado" && p.estado !== "frenado" && p.estado !== "anulado");
   const anteriores = propios.filter((p) => p !== abierto);
   const cerrados = anteriores.filter((p) => p.estado === "cerrado");
   const pendientesFirma = cerrados.filter((p) => !p.firmadoEn);

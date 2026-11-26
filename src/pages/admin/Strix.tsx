@@ -2,8 +2,8 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { formatFecha, formatFechaHora } from "../../lib/registros";
 import { getSupabase } from "../../lib/supabase";
 import {
-  ArchivoNoSoportado, CAMPOS_STRIX, FUENTES, baseDeUnidad, cargarManual, convertirFilas, diaSiguiente, eliminarImportacion,
-  eliminarRecorrido, faltantes, formatHoras, importarRecorridos, leerMinutos, leerNumero, leerReporte, mapeoInicial,
+  ArchivoNoSoportado, CAMPOS_STRIX, FUENTES, anularImportacion, anularRecorrido, baseDeUnidad, cargarManual, convertirFilas,
+  diaSiguiente, faltantes, formatHoras, importarRecorridos, leerMinutos, leerNumero, leerReporte, mapeoInicial,
   recordarMapeo, registrosDelDia, revincularSinVehiculo, separarEncabezado, tipoReporte, ultimoDia, useStrix, vincularStrix,
   type BaseLiquidacion, type FuenteStrix, type Mapeo, type Recorrido, type ResultadoImportacion, type TipoReporte, type UnidadTiempo,
 } from "../../lib/strix";
@@ -12,7 +12,7 @@ import {
   formatImporte, guardarFila, nombreContrato, texto, useComercial,
   type DatosComerciales, type Fila,
 } from "../../lib/comercial";
-import { DialogoEliminar, type PedidoEliminar } from "../../components/ui/DialogoEliminar";
+import { BotonAnular } from "../../components/ui/BotonAnular";
 
 const dos = (n: number) => String(n).padStart(2, "0");
 
@@ -310,7 +310,6 @@ function CargaManual({ mes, setMes, precarga }: { mes: string; setMes: (mes: str
   const [guardando, setGuardando] = useState(false);
   const [aviso, setAviso] = useState("");
   const [fallo, setFallo] = useState("");
-  const [pedido, setPedido] = useState<PedidoEliminar | null>(null);
 
   useEffect(() => {
     if (!precarga) return;
@@ -377,20 +376,12 @@ function CargaManual({ mes, setMes, precarga }: { mes: string; setMes: (mes: str
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function eliminar() {
-    if (!pedido) return;
-    setGuardando(true);
-    try {
-      await eliminarRecorrido(Number(pedido.id));
-      setAviso(`Se eliminó el dato de ${pedido.nombre}.`);
-      setPedido(null);
-      await refresh();
-    } catch (e) {
-      setFallo(e instanceof Error ? e.message : "No se pudo eliminar.");
-      setPedido(null);
-    } finally {
-      setGuardando(false);
-    }
+  /** El error lo muestra el cuadro de anulación. */
+  async function anular(r: Recorrido, nombre: string, motivo: string) {
+    setFallo("");
+    await anularRecorrido(r.id, motivo);
+    setAviso(`Se anuló el dato de ${nombre}.`);
+    await refresh();
   }
 
   return (
@@ -470,11 +461,12 @@ function CargaManual({ mes, setMes, precarga }: { mes: string; setMes: (mes: str
                       <td><CeldaGerenciamientos r={r} /></td>
                       <td className="celda-acciones">
                         <button type="button" className="secondary" onClick={() => editar(r)}>Editar</button>
-                        <button type="button" className="secondary peligro" onClick={() => setPedido({
-                          id: String(r.id), tipo: "el dato cargado a mano", nombre: `${r.dominio} · ${r.fecha ? formatFecha(r.fecha) : ""}`,
-                          aviso: "Esta acción no se puede deshacer.",
-                          consecuencias: [`Se quitan ${formatKm(r.km)} de los gerenciamientos de ese día y se recalculan.`],
-                        })}>Eliminar</button>
+                        <BotonAnular
+                          tipo="el dato cargado a mano"
+                          nombre={`${r.dominio} · ${r.fecha ? formatFecha(r.fecha) : ""}`}
+                          consecuencias={[`Se quitan ${formatKm(r.km)} de los gerenciamientos de ese día y se recalculan.`]}
+                          onAnular={(motivo) => anular(r, `${r.dominio} · ${r.fecha ? formatFecha(r.fecha) : ""}`, motivo)}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -484,7 +476,6 @@ function CargaManual({ mes, setMes, precarga }: { mes: string; setMes: (mes: str
           )}
         </div>
       </section>
-      <DialogoEliminar pedido={pedido} ocupado={guardando} onCancelar={() => setPedido(null)} onEliminar={() => void eliminar()} />
     </>
   );
 }
@@ -498,8 +489,6 @@ function CeldaGerenciamientos({ r }: { r: Recorrido }) {
   return <span className="ayuda">—</span>;
 }
 
-interface Confirmacion { pedido: PedidoEliminar; accion: () => Promise<string> }
-
 function DatosDelMes({ mes, setMes, onCargarAMano }: { mes: string; setMes: (mes: string) => void; onCargarAMano: CargarAMano }) {
   const { datos, error, refresh } = useStrix(mes);
   const [aviso, setAviso] = useState("");
@@ -507,7 +496,6 @@ function DatosDelMes({ mes, setMes, onCargarAMano }: { mes: string; setMes: (mes
   const [errorAccion, setErrorAccion] = useState("");
   const [filtro, setFiltro] = useState<"todos" | "sin" | "manual">("todos");
   const [dominioFiltro, setDominioFiltro] = useState("");
-  const [confirmacion, setConfirmacion] = useState<Confirmacion | null>(null);
 
   async function ejecutar(accion: () => Promise<string>) {
     setAviso("");
@@ -520,7 +508,6 @@ function DatosDelMes({ mes, setMes, onCargarAMano }: { mes: string; setMes: (mes
       setErrorAccion(fallo instanceof Error ? fallo.message : "No se pudo completar la acción.");
     } finally {
       setOcupado(false);
-      setConfirmacion(null);
     }
   }
 
@@ -630,15 +617,16 @@ function DatosDelMes({ mes, setMes, onCargarAMano }: { mes: string; setMes: (mes
                       {r.fuente === "manual" && r.vehiculo_id && r.fecha && (
                         <button type="button" className="secondary" onClick={() => onCargarAMano(r.vehiculo_id!, r.fecha!, r)}>Editar</button>
                       )}
-                      <button type="button" className="secondary peligro" disabled={ocupado} onClick={() => setConfirmacion({
-                        pedido: {
-                          id: String(r.id), tipo: "el registro de Strix",
-                          nombre: `${r.dominio} · ${r.fecha ? formatFecha(r.fecha) : formatFechaHora(r.inicio)}`,
-                          aviso: "Esta acción no se puede deshacer.",
-                          consecuencias: [`Se quitan ${formatKm(r.km)} de los gerenciamientos vinculados y se recalculan.`],
-                        },
-                        accion: async () => { await eliminarRecorrido(r.id); return "Registro eliminado y vinculación recalculada."; },
-                      })}>Eliminar</button>
+                      <BotonAnular
+                        tipo="el registro de Strix"
+                        nombre={`${r.dominio} · ${r.fecha ? formatFecha(r.fecha) : formatFechaHora(r.inicio)}`}
+                        consecuencias={[`Se quitan ${formatKm(r.km)} de los gerenciamientos vinculados y se recalculan.`]}
+                        onAnular={async (motivo) => {
+                          await anularRecorrido(r.id, motivo);
+                          setAviso("Registro anulado y vinculación recalculada.");
+                          await refresh();
+                        }}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -663,29 +651,32 @@ function DatosDelMes({ mes, setMes, onCargarAMano }: { mes: string; setMes: (mes
                 <thead><tr><th>Archivo</th><th>Fecha</th><th>Filas</th><th>Nuevas</th><th>Actualizadas</th><th>Fuera de flota</th><th>Acciones</th></tr></thead>
                 <tbody>
                   {datos.importaciones.map((i) => (
-                    <tr key={i.id}>
-                      <td>{i.archivo}</td>
+                    <tr key={i.id} className={i.anulado_en ? "fila-anulada" : undefined}>
+                      <td>
+                        {i.archivo}
+                        {i.anulado_en && <><br /><span className="chip anulado">Anulada</span> <small>Motivo: {i.motivo_anulacion}</small></>}
+                      </td>
                       <td>{formatFechaHora(i.created_at)}</td>
                       <td>{i.filas}</td>
                       <td>{i.nuevas}</td>
                       <td>{i.actualizadas ?? 0}</td>
                       <td>{i.sin_vehiculo}</td>
                       <td>
-                        <button type="button" className="secondary peligro" disabled={ocupado} onClick={() => setConfirmacion({
-                          pedido: {
-                            id: String(i.id), tipo: "la importación", nombre: i.archivo,
-                            aviso: "Esta acción no se puede deshacer.",
-                            consecuencias: [
-                              "Se eliminan los datos de Strix que trajo este archivo (los que después se actualizaron con otro reporte o a mano se conservan).",
+                        {!i.anulado_en && (
+                          <BotonAnular
+                            tipo="la importación"
+                            nombre={i.archivo}
+                            consecuencias={[
+                              "Se anulan los datos de Strix que trajo este archivo (los que después se actualizaron con otro reporte o a mano quedan como están).",
                               "Los gerenciamientos se recalculan.",
-                            ],
-                          },
-                          accion: async () => {
-                            await eliminarImportacion(i.id);
-                            await vincularStrix(null, null);
-                            return "Importación eliminada y vinculación recalculada.";
-                          },
-                        })}>Eliminar</button>
+                            ]}
+                            onAnular={async (motivo) => {
+                              await anularImportacion(i.id, motivo);
+                              setAviso("Importación anulada y vinculación recalculada.");
+                              await refresh();
+                            }}
+                          />
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -695,12 +686,6 @@ function DatosDelMes({ mes, setMes, onCargarAMano }: { mes: string; setMes: (mes
           )}
         </div>
       </section>
-      <DialogoEliminar
-        pedido={confirmacion?.pedido ?? null}
-        ocupado={ocupado}
-        onCancelar={() => setConfirmacion(null)}
-        onEliminar={() => confirmacion && void ejecutar(confirmacion.accion)}
-      />
     </>
   );
 }
@@ -782,7 +767,7 @@ function Liquidacion({ mes, setMes, onCargarAMano }: { mes: string; setMes: (mes
   if (errorG || errorC) return <p className="error" role="alert">{errorG || errorC}</p>;
   if (!gerenciamientos || !datos) return <p className="estado">Cargando liquidación…</p>;
 
-  const delMes = gerenciamientos.filter((g) => g.fechaSalida.startsWith(mes) && g.autorizacion === "autorizado");
+  const delMes = gerenciamientos.filter((g) => g.fechaSalida.startsWith(mes) && g.autorizacion === "autorizado" && !g.anulacion);
   const grupos = agrupar(delMes, datos);
   const sinContrato = delMes.filter((g) => !g.contratoId || !datos.contratos.some((c) => c.id === g.contratoId));
   const tipoPeriodo = datos.columnas.certificaciones.find((c) => c.columna === "periodo")?.tipo;

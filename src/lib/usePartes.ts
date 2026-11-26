@@ -41,6 +41,7 @@ const estados: Record<string, EstadoParte> = {
   "En Curso": "en_curso",
   Frenado: "frenado",
   Cerrado: "cerrado",
+  Anulado: "anulado",
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -278,6 +279,8 @@ export interface ResumenParte {
   ats: string;
   /** Cuándo el operador dio conformidad con el ATS ("" si no corresponde). */
   conformidadEn: string;
+  /** Si el parte se anuló: cuándo, quién y por qué. */
+  anulacion: { en: string; por: string; motivo: string } | null;
   trabajos: TrabajoParte[];
   strix: {
     vinculados: number;
@@ -313,6 +316,9 @@ function aResumen(data: unknown): ResumenParte | null {
     },
     ats: typeof data.ats === "string" ? data.ats : "",
     conformidadEn: texto(data, "conformidad_en"),
+    anulacion: isRecord(data.anulacion)
+      ? { en: texto(data.anulacion, "en"), por: texto(data.anulacion, "por"), motivo: texto(data.anulacion, "motivo") }
+      : null,
     trabajos: (Array.isArray(data.gerenciamientos) ? data.gerenciamientos : []).filter(isRecord).map((g) => ({
       id: Number(g.id),
       fechaSalida: texto(g, "fecha_salida"),

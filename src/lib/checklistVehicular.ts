@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getSupabase, mensajeDeError } from "./supabase";
 import { hoy } from "./registros";
-import { borrarArchivo, subirArchivo } from "./legajos";
+import { subirArchivo } from "./legajos";
 
 // Checklist vehicular por tipo de flota (planilla CEMSA de flota pesada y su versión liviana),
 // datos precargados que se renuevan cada 6 meses y estado del checklist de un vehículo.
@@ -531,10 +531,8 @@ export async function cargarDocumentoLegajo(doc: { operadorId: string; tipoId: s
     archivo_path: path,
     archivo_nombre: doc.archivo.name,
   });
-  if (error) {
-    await borrarArchivo(path);
-    throw new Error(mensajeDeError(error));
-  }
+  // Si falla, el archivo subido queda sin usar en Storage (los archivos no se borran).
+  if (error) throw new Error(mensajeDeError(error));
 }
 
 // ---------- Datos del conductor (ficha del operador) ----------

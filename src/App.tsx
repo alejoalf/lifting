@@ -9,6 +9,8 @@ import SupervisorPanel from "./pages/supervisor/Panel";
 import AdminPanel from "./pages/admin/Panel";
 import NuevoGerenciamiento from "./pages/gerenciamientos/Nuevo";
 import HistoricoGerenciamientos from "./pages/gerenciamientos/Historico";
+import ConstanciaGerenciamiento from "./pages/gerenciamientos/Constancia";
+import VerificarConstancia from "./pages/VerificarConstancia";
 import DetalleParte from "./pages/partes/Detalle";
 import InformeParte from "./pages/partes/Informe";
 import Vehiculo from "./pages/admin/Flota";
@@ -36,6 +38,8 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       {/* Pública: enlace firmado del mail de salida excepcional (lo valida la Edge Function "correos"). */}
       <Route path="/autorizar-salida" element={<AutorizarSalida />} />
+      {/* Pública: comprueba el código de verificación impreso en una constancia de gerenciamiento. */}
+      <Route path="/verificar/:hash" element={<VerificarConstancia />} />
       <Route element={<RequireRole roles={["chofer", "hidrogrulero", "supervisor", "admin"]}><AppShell /></RequireRole>}>
         <Route path="/chofer" element={<RequireRole roles={["chofer", "hidrogrulero"]}><ChoferInicio /></RequireRole>} />
         <Route path="/chofer/nuevo" element={<RequireRole roles={["chofer", "hidrogrulero"]}><NuevoParte /></RequireRole>} />
@@ -44,6 +48,7 @@ export default function App() {
         {/* Disponibles para todos los roles autenticados (el guard del layout ya los cubre). */}
         <Route path="/gerenciamientos" element={<HistoricoGerenciamientos />} />
         <Route path="/gerenciamientos/nuevo" element={<NuevoGerenciamiento />} />
+        <Route path="/gerenciamientos/:gerenciamientoId" element={<ConstanciaGerenciamiento />} />
         <Route path="/admin/flota/:vehiculoId" element={<RequireRole roles={["admin"]}><Vehiculo /></RequireRole>} />
         <Route path="/admin/clientes" element={<RequireRole roles={["admin"]}><Clientes /></RequireRole>} />
         <Route path="/admin/clientes/:clienteId" element={<RequireRole roles={["admin"]}><FichaCliente /></RequireRole>} />

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { getSupabase, mensajeDeError } from "./supabase";
+import { anularRegistro, getSupabase, mensajeDeError } from "./supabase";
 import { semaforoDe, type Semaforo } from "./registros";
-import { borrarArchivo, subirArchivo, type TipoDocumento } from "./legajos";
+import { subirArchivo, type TipoDocumento } from "./legajos";
 
 // Flota (Supabase): vehículos, sus documentos y el service obligatorio.
 
@@ -25,6 +25,9 @@ export interface DocumentoVehiculo {
   archivo_path: string;
   archivo_nombre: string;
   created_at: string;
+  /** Anulado: queda como historial pero no cuenta. */
+  anulado_en?: string | null;
+  motivo_anulacion?: string | null;
 }
 
 export interface DatosFlota {
@@ -112,7 +115,8 @@ export function useColumnasVehiculo() {
 }
 
 /** Estado documental de un vehículo: por cada tipo cuenta el documento de vencimiento más lejano. */
-export function estadoDocumental(documentos: DocumentoVehiculo[], vehiculoId: string) {
+export function estadoDocumental(todos: DocumentoVehiculo[], vehiculoId: string) {
+  const documentos = todos.filter((d) => !d.anulado_en);
   const porTipo = new Map<string, string>();
   for (const d of documentos) {
     if (d.vehiculo_id !== vehiculoId || !d.vencimiento) continue;
@@ -130,13 +134,6 @@ export async function guardarVehiculo(id: string | null, datos: Record<string, u
   const { data, error } = await getSupabase().rpc("guardar_vehiculo", { p_id: id, p_datos: datos });
   if (error) throw new Error(mensajeDeError(error));
   return String(data);
-}
-
-export async function eliminarVehiculo(id: string, documentos: DocumentoVehiculo[]) {
-  const { error } = await getSupabase().rpc("eliminar_vehiculo", { p_id: id });
-  if (error) throw new Error(mensajeDeError(error, true));
-  // Los documentos se borran en cascada; quedan por limpiar sus archivos.
-  await Promise.all(documentos.filter((d) => d.vehiculo_id === id).map((d) => borrarArchivo(d.archivo_path, "flota")));
 }
 
 /** Carga un documento nuevo o, con `anterior`, lo edita (sin `archivo` conserva el archivo actual). */
@@ -163,15 +160,10 @@ export async function guardarDocumentoVehiculo(documento: {
   const { error } = anterior
     ? await tabla.update(fila).eq("id", anterior.id)
     : await tabla.insert({ ...fila, vehiculo_id: documento.vehiculoId });
-  if (error) {
-    if (archivo) await borrarArchivo(String(fila.archivo_path), "flota");
-    throw new Error(mensajeDeError(error));
-  }
-  if (archivo && anterior) await borrarArchivo(anterior.archivo_path, "flota");
+  // El archivo anterior no se borra: queda en Storage y su ruta en la auditoría.
+  if (error) throw new Error(mensajeDeError(error));
 }
 
-export async function eliminarDocumentoVehiculo(documento: DocumentoVehiculo) {
-  const { error } = await getSupabase().from("documentos_vehiculo").delete().eq("id", documento.id);
-  if (error) throw new Error(mensajeDeError(error, true));
-  await borrarArchivo(documento.archivo_path, "flota");
-}
+/** Anula un documento: queda como historial, deja de contar para el estado documental y el archivo se conserva. */
+export const anularDocumentoVehiculo = (documento: DocumentoVehiculo, motivo: string) =>
+  anularRegistro("documentos_vehiculo", documento.id, motivo);

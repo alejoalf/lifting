@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { getSupabase, mensajeDeError } from "./supabase";
-import { borrarArchivo, subirArchivo } from "./legajos";
+import { anularRegistro, getSupabase, mensajeDeError } from "./supabase";
+import { subirArchivo } from "./legajos";
 
 // Clientes, contratos y certificaciones (Supabase, solo Admin). Las columnas de
 // esas tres tablas se leen de la base, así los formularios muestran las reales.
@@ -29,6 +29,9 @@ export interface Certificado {
   archivo_nombre: string | null;
   aplica_a_todos: boolean;
   observaciones: string | null;
+  /** Anulado: queda guardado pero ya no se exige ni se edita. */
+  anulado_en?: string | null;
+  motivo_anulacion?: string | null;
 }
 
 export interface NotaHistorial {
@@ -37,7 +40,12 @@ export interface NotaHistorial {
   fecha: string;
   tipo: string;
   detalle: string;
+  anulado_en?: string | null;
+  motivo_anulacion?: string | null;
 }
+
+/** Fila anulada (certificación, certificado o nota): queda a la vista pero no cuenta. */
+export const estaAnulada = (fila: object) => Boolean((fila as { anulado_en?: unknown }).anulado_en);
 
 export const TIPOS_NOTA = ["Nota", "Llamada", "Reunión", "Email", "Reclamo", "Pago"];
 
@@ -172,17 +180,17 @@ export function contratosDe(datos: DatosComerciales, clienteId: string) {
 export function certificacionesDe(datos: DatosComerciales, contratos: Fila[]) {
   const ids = new Set(contratos.map((c) => c.id));
   return datos.certificaciones
-    .filter((c) => ids.has(texto(c.contrato_id)))
+    .filter((c) => ids.has(texto(c.contrato_id)) && !estaAnulada(c))
     .sort((a, b) => texto(b.periodo).localeCompare(texto(a.periodo)));
 }
 
 /** Certificados que aplican a un cliente (o a alguno de sus contratos) o a un contrato puntual. */
 export function certificadosDe(datos: DatosComerciales, clienteId: string | null, contratos: Fila[]) {
   const ids = new Set(contratos.map((c) => c.id));
-  return datos.certificados.filter((certificado) =>
+  return datos.certificados.filter((certificado) => !estaAnulada(certificado) && (
     certificado.aplica_a_todos ||
     datos.certificadoClientes.some((v) => v.certificado_id === certificado.id && v.cliente_id === clienteId) ||
-    datos.certificadoContratos.some((v) => v.certificado_id === certificado.id && ids.has(v.contrato_id)));
+    datos.certificadoContratos.some((v) => v.certificado_id === certificado.id && ids.has(v.contrato_id))));
 }
 
 export const CLASE_ESTADO_CONTRATO: Record<string, string> = {
@@ -229,20 +237,15 @@ export async function guardarFila(tabla: Tabla, id: string | null, datos: Record
   return String(data);
 }
 
-export async function eliminarFila(tabla: Tabla, id: string) {
-  const { error } = await getSupabase().rpc("eliminar_fila", { p_tabla: tabla, p_id: id });
-  if (error) throw new Error(error.message);
-}
+/** Las certificaciones se anulan; clientes y contratos se desactivan desde su formulario. */
+export const anularCertificacion = (id: string, motivo: string) => anularRegistro("certificaciones", id, motivo);
 
 export async function agregarNota(nota: Omit<NotaHistorial, "id">) {
   const { error } = await getSupabase().from("cliente_historial").insert(nota);
   if (error) throw new Error(mensajeDeError(error));
 }
 
-export async function eliminarNota(id: string) {
-  const { error } = await getSupabase().from("cliente_historial").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-}
+export const anularNota = (id: string, motivo: string) => anularRegistro("cliente_historial", id, motivo);
 
 /** Crea o edita un certificado y reemplaza los clientes y contratos a los que aplica. */
 export async function guardarCertificado(certificado: {
@@ -263,11 +266,8 @@ export async function guardarCertificado(certificado: {
   const guardado = anterior
     ? await supabase.from("certificados_empresa").update(fila).eq("id", anterior.id).select("id").single()
     : await supabase.from("certificados_empresa").insert(fila).select("id").single();
-  if (guardado.error) {
-    if (archivo) await borrarArchivo(String(fila.archivo_path), "certificados");
-    throw new Error(mensajeDeError(guardado.error));
-  }
-  if (archivo && anterior?.archivo_path) await borrarArchivo(anterior.archivo_path, "certificados");
+  // El archivo anterior no se borra: queda en Storage y su ruta en la auditoría.
+  if (guardado.error) throw new Error(mensajeDeError(guardado.error));
 
   const id: string = guardado.data.id;
   const pasos = [
@@ -284,8 +284,5 @@ export async function guardarCertificado(certificado: {
   if (fallo) throw new Error(`El certificado se guardó, pero no a quién aplica: ${fallo.message}`);
 }
 
-export async function eliminarCertificado(certificado: Certificado) {
-  const { error } = await getSupabase().from("certificados_empresa").delete().eq("id", certificado.id);
-  if (error) throw new Error(mensajeDeError(error, true));
-  if (certificado.archivo_path) await borrarArchivo(certificado.archivo_path, "certificados");
-}
+export const anularCertificado = (certificado: Certificado, motivo: string) =>
+  anularRegistro("certificados_empresa", certificado.id, motivo);

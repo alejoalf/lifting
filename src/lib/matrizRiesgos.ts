@@ -505,7 +505,4 @@ export async function guardarFila(tabla: TablaRiesgo, id: string | null, fila: R
   }
 }
 
-export async function eliminarFila(tabla: TablaRiesgo, id: string) {
-  const { error } = await getSupabase().from(tabla).delete().eq("id", id);
-  if (error) throw new Error(mensajeDeError(error, true));
-}
+// Las filas de la matriz no se borran: se desactivan con guardarFila(tabla, id, { activo: false }).

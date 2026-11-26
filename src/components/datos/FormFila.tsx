@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { formatFecha } from "../../lib/registros";
 import { etiquetaColumna, texto, type Columna, type Fila, type Opcion } from "../../lib/comercial";
+import { AvisoAnulado, BotonAnular, type Anulacion } from "../ui/BotonAnular";
 
 type Valores = Record<string, string | boolean>;
 
@@ -142,10 +143,16 @@ export function TablaFilas({ columnas, filas, referencias = {}, ocultar = [], en
         </thead>
         <tbody>
           {filas.map((fila) => (
-            <tr key={fila.id}>
+            <tr key={fila.id} className={fila.anulado_en || fila.activo === false ? "fila-anulada" : undefined}>
               {visibles.map((c, i) => {
                 const valor = mostrar(fila[c.columna], referencias[c.columna]);
-                return <td key={c.columna}>{i === 0 ? <Link to={enlace(fila)}>{valor}</Link> : valor}</td>;
+                return (
+                  <td key={c.columna}>
+                    {i === 0 ? <Link to={enlace(fila)}>{valor}</Link> : valor}
+                    {i === 0 && fila.anulado_en ? <> <span className="chip anulado">Anulado</span></> : null}
+                    {i === 0 && fila.activo === false ? <> <span className="chip sin-datos">Inactivo</span></> : null}
+                  </td>
+                );
               })}
               {extra && <td>{extra.celda(fila)}</td>}
               <td><Link className="secondary enlace-boton" to={enlace(fila)}>Abrir</Link></td>
@@ -158,38 +165,28 @@ export function TablaFilas({ columnas, filas, referencias = {}, ocultar = [], en
 }
 
 /** Zona de baja al pie de una ficha. */
-export function ZonaEliminar({ titulo, ayuda, confirmacion, eliminar }: {
+/** Panel para anular un registro (no se borra: queda guardado como anulado, con motivo). */
+export function ZonaAnular({ titulo, ayuda, tipo, nombre, anulacion, anular }: {
   titulo: string;
   ayuda: string;
-  confirmacion: string;
-  eliminar: () => Promise<void>;
+  /** Qué se anula, con artículo: «el movimiento». */
+  tipo: string;
+  nombre: string;
+  anulacion: Anulacion | null;
+  anular: (motivo: string) => Promise<void>;
 }) {
-  const [eliminando, setEliminando] = useState(false);
-  const [error, setError] = useState("");
-
-  async function confirmar() {
-    if (!window.confirm(confirmacion)) return;
-    setError("");
-    setEliminando(true);
-    try {
-      await eliminar();
-    } catch (fallo) {
-      setError(fallo instanceof Error ? fallo.message : "No se pudo eliminar.");
-      setEliminando(false);
-    }
-  }
-
   return (
     <section className="panel">
       <h2 className="panel-header">{titulo}</h2>
       <div className="panel-body">
-        <p className="ayuda">{ayuda}</p>
-        {error && <p className="error" role="alert">{error}</p>}
-        <div className="actions">
-          <button type="button" className="secondary peligro" disabled={eliminando} onClick={() => void confirmar()}>
-            {eliminando ? "Eliminando…" : "Eliminar"}
-          </button>
-        </div>
+        {anulacion ? <AvisoAnulado anulacion={anulacion} /> : (
+          <>
+            <p className="ayuda">{ayuda}</p>
+            <div className="actions">
+              <BotonAnular tipo={tipo} nombre={nombre} onAnular={anular} />
+            </div>
+          </>
+        )}
       </div>
     </section>
   );

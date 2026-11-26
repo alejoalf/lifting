@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { CellObject } from "xlsx";
-import { getSupabase } from "./supabase";
+import { anularRegistro, getSupabase } from "./supabase";
 
 // Integración con Strix (telemetría). Mientras no haya API, o si la API no
 // responde, los datos entran de dos formas:
@@ -437,10 +437,8 @@ export async function cargarManual(c: CargaManual) {
   return Boolean(data);
 }
 
-export async function eliminarRecorrido(id: number) {
-  const { error } = await getSupabase().rpc("eliminar_recorrido_strix", { p_id: id });
-  if (error) throw new Error(error.message);
-}
+/** Anula un dato de Strix (queda guardado) y recalcula los gerenciamientos del vehículo. */
+export const anularRecorrido = (id: number, motivo: string) => anularRegistro("strix_recorridos", id, motivo);
 
 export async function vincularStrix(desde: string | null, hasta: string | null) {
   const { data, error } = await getSupabase().rpc("vincular_strix", { p_desde: desde, p_hasta: hasta });
@@ -454,13 +452,12 @@ export async function revincularSinVehiculo() {
   return Number(data);
 }
 
-export async function eliminarImportacion(id: number) {
-  const { error } = await getSupabase().from("strix_importaciones").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-}
+/** Anula una importación y los datos que trajo; la base recalcula los gerenciamientos. */
+export const anularImportacion = (id: number, motivo: string) => anularRegistro("strix_importaciones", id, motivo);
 
 export interface Importacion {
   id: number; archivo: string; filas: number; nuevas: number; actualizadas: number; sin_vehiculo: number; created_at: string;
+  anulado_en?: string | null; motivo_anulacion?: string | null;
 }
 
 export type FuenteStrix = "archivo" | "email" | "api" | "manual";
@@ -541,6 +538,7 @@ export async function registrosDelDia(vehiculoId: string, fecha: string) {
     .from("strix_recorridos")
     .select("id, fuente, granularidad, km")
     .eq("vehiculo_id", vehiculoId)
+    .is("anulado_en", null)
     .lt("inicio", `${diaSiguiente(fecha)}T00:00:00-03:00`)
     .gt("fin", `${fecha}T00:00:00-03:00`);
   if (error) throw new Error(error.message);

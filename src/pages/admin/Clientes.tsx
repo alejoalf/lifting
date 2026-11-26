@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { FormFila, TablaFilas, ZonaEliminar, textoFila } from "../../components/datos/FormFila";
+import { FormFila, TablaFilas, textoFila } from "../../components/datos/FormFila";
+import { BotonAnular } from "../../components/ui/BotonAnular";
 import { BotonVerArchivo } from "../../components/legajo/LegajoOperador";
 import { StatusChip } from "../../components/ui/StatusChip";
 import { getSupabase } from "../../lib/supabase";
 import { contiene, formatFecha, hoy, semaforoDe } from "../../lib/registros";
 import { usePartes } from "../../lib/usePartes";
 import {
-  CLASE_ESTADO_CONTRATO, TIPOS_NOTA, agregarNota, certificacionesDe, certificadosDe, contratosDe, eliminarFila,
-  eliminarNota, estadoCobro, formatImporte, guardarFila, importeCertificacion, referencias, texto, useComercial,
+  CLASE_ESTADO_CONTRATO, TIPOS_NOTA, agregarNota, certificacionesDe, certificadosDe, contratosDe,
+  anularNota, estadoCobro, formatImporte, guardarFila, importeCertificacion, referencias, texto, useComercial,
   type Certificado, type DatosComerciales, type Fila, type NotaHistorial,
 } from "../../lib/comercial";
 
@@ -174,17 +175,18 @@ function Historial({ datos, cliente, contratos }: { datos: DatosComerciales; cli
               <thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th>Acciones</th></tr></thead>
               <tbody>
                 {eventos.map((e) => (
-                  <tr key={e.clave}>
+                  <tr key={e.clave} className={e.nota?.anulado_en ? "fila-anulada" : undefined}>
                     <td>{formatFecha(e.fecha)}</td>
                     <td>{e.tipo}</td>
-                    <td>{e.detalle}</td>
+                    <td>
+                      {e.detalle}
+                      {e.nota?.anulado_en && <><br /><span className="chip anulado">Anulada</span> <small>Motivo: {e.nota.motivo_anulacion}</small></>}
+                    </td>
                     <td>
                       {e.enlace && <Link className="secondary enlace-boton" to={e.enlace}>Abrir</Link>}
-                      {e.nota && (
-                        <button type="button" className="secondary peligro" disabled={guardando} onClick={() => {
-                          const nota = e.nota;
-                          if (window.confirm("¿Eliminar esta nota del historial?")) void ejecutar(() => eliminarNota(nota.id));
-                        }}>Eliminar</button>
+                      {e.nota && !e.nota.anulado_en && (
+                        <BotonAnular tipo="la nota del historial" nombre={`${formatFecha(e.nota.fecha)} · ${e.nota.tipo}`}
+                          onAnular={async (motivo) => { const nota = e.nota; if (nota) { await anularNota(nota.id, motivo); await cargar(); } }} />
                       )}
                     </td>
                   </tr>
@@ -311,15 +313,10 @@ export function FichaCliente() {
 
           <Historial datos={datos} cliente={cliente} contratos={contratos} />
 
-          <ZonaEliminar
-            titulo="Eliminar cliente"
-            ayuda="Borra el cliente y su historial. Si tiene contratos, partes u otros registros asociados no se puede eliminar."
-            confirmacion={`¿Eliminar a ${texto(cliente.razon_social)}? No se puede deshacer.`}
-            eliminar={async () => {
-              await eliminarFila("clientes", cliente.id);
-              navigate("/admin/clientes");
-            }}
-          />
+          <p className="ayuda">
+            Los clientes no se borran: para dejar de operar con uno, destildá <strong>Activo</strong> en sus datos.
+            Deja de aparecer al abrir partes nuevos y conserva todo su historial.
+          </p>
         </>
       )}
     </>

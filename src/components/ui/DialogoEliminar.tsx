@@ -13,13 +13,17 @@ export interface PedidoEliminar {
   aviso?: string;
 }
 
-/** Cuadro de confirmación para eliminar, con la opción de desactivar en su lugar. */
+/**
+ * Cuadro de confirmación para eliminar, con la opción de desactivar en su lugar.
+ * Sin `onEliminar` solo ofrece desactivar (catálogos que no se borran, como la matriz de riesgos).
+ */
 export function DialogoEliminar({ pedido, ocupado, onCancelar, onEliminar, onDesactivar }: {
   pedido: PedidoEliminar | null; ocupado: boolean;
-  onCancelar: () => void; onEliminar: () => void; onDesactivar?: () => void;
+  onCancelar: () => void; onEliminar?: () => void; onDesactivar?: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const puedeDesactivar = Boolean(pedido?.activo && onDesactivar);
+  const soloDesactivar = !onEliminar;
 
   useEffect(() => {
     const dialogo = ref.current;
@@ -40,15 +44,21 @@ export function DialogoEliminar({ pedido, ocupado, onCancelar, onEliminar, onDes
         <div className="dialogo-contenido">
           <div className="dialogo-icono" aria-hidden="true">!</div>
           <div>
-            <h2 id="dialogo-eliminar-titulo">¿Eliminar {pedido.tipo}?</h2>
+            <h2 id="dialogo-eliminar-titulo">¿{soloDesactivar ? "Desactivar" : "Eliminar"} {pedido.tipo}?</h2>
             <p className="dialogo-nombre">«{pedido.nombre}»</p>
-            <p>{pedido.aviso ?? "Esta acción no se puede deshacer y el cambio lo ven todos los usuarios al instante."}</p>
-            {pedido.consecuencias.length > 0 && (
+            {soloDesactivar ? (
+              <p>{pedido.activo
+                ? "Los datos no se borran: queda guardado pero deja de usarse. Lo podés volver a activar editándolo."
+                : "Ya está desactivado. Para volver a usarlo, editalo y tildá «Activo»."}</p>
+            ) : (
+              <p>{pedido.aviso ?? "Esta acción no se puede deshacer y el cambio lo ven todos los usuarios al instante."}</p>
+            )}
+            {!soloDesactivar && pedido.consecuencias.length > 0 && (
               <ul className="dialogo-consecuencias">
                 {pedido.consecuencias.map((c) => <li key={c}>{c}</li>)}
               </ul>
             )}
-            {puedeDesactivar && (
+            {puedeDesactivar && !soloDesactivar && (
               <p className="dialogo-sugerencia">
                 Si solo querés que deje de usarse, podés <strong>desactivarlo</strong>: queda guardado y lo podés volver a activar.
               </p>
@@ -57,9 +67,11 @@ export function DialogoEliminar({ pedido, ocupado, onCancelar, onEliminar, onDes
           <div className="dialogo-acciones">
             <button type="button" className="secondary" onClick={onCancelar} disabled={ocupado} autoFocus>Cancelar</button>
             {puedeDesactivar && <button type="button" className="secondary" onClick={onDesactivar} disabled={ocupado}>Desactivar</button>}
-            <button type="button" className="boton-peligro" onClick={onEliminar} disabled={ocupado}>
-              {ocupado ? "Procesando…" : "Eliminar definitivamente"}
-            </button>
+            {onEliminar && (
+              <button type="button" className="boton-peligro" onClick={onEliminar} disabled={ocupado}>
+                {ocupado ? "Procesando…" : "Eliminar definitivamente"}
+              </button>
+            )}
           </div>
         </div>
       )}

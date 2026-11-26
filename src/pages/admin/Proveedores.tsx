@@ -8,13 +8,14 @@ interface Proveedor {
   tipo: string | null;
   cuit: string | null;
   contacto: string | null;
+  activo: boolean;
 }
 
 const VACIO = { razon_social: "", tipo: "", cuit: "", contacto: "" };
 /** Rubros habituales (se puede escribir cualquier otro). */
 const TIPOS = ["Combustible", "Taller y repuestos", "Neumáticos", "Subalquiler de equipos", "Servicios profesionales", "Seguros", "Impuestos y organismos"];
 
-/** Proveedores (Admin): alta, edición y baja. Se usan para vincular los egresos de la caja. */
+/** Proveedores (Admin): alta, edición y desactivación (no se borran). Se usan para vincular los egresos de la caja. */
 export default function Proveedores() {
   const [proveedores, setProveedores] = useState<Proveedor[] | null>(null);
   const [errorCarga, setErrorCarga] = useState("");
@@ -26,7 +27,7 @@ export default function Proveedores() {
   const [aviso, setAviso] = useState("");
 
   const cargar = useCallback(async () => {
-    const { data, error: fallo } = await getSupabase().from("proveedores").select("id, razon_social, tipo, cuit, contacto").order("razon_social");
+    const { data, error: fallo } = await getSupabase().from("proveedores").select("id, razon_social, tipo, cuit, contacto, activo").order("razon_social");
     if (fallo) setErrorCarga(`No se pudieron cargar los proveedores: ${mensajeDeError(fallo)}`);
     else {
       setProveedores(data ?? []);
@@ -43,13 +44,13 @@ export default function Proveedores() {
     setError("");
   }
 
-  async function ejecutar(accion: () => PromiseLike<{ error: { message: string; code?: string } | null }>, mensaje: string, alBorrar = false) {
+  async function ejecutar(accion: () => PromiseLike<{ error: { message: string; code?: string } | null }>, mensaje: string) {
     setError("");
     setAviso("");
     setOcupado(true);
     try {
       const { error: fallo } = await accion();
-      if (fallo) throw new Error(mensajeDeError(fallo, alBorrar));
+      if (fallo) throw new Error(mensajeDeError(fallo));
       editar(null);
       await cargar();
       setAviso(mensaje);
@@ -74,9 +75,11 @@ export default function Proveedores() {
       editando ? "Proveedor actualizado." : `Proveedor «${fila.razon_social}» agregado.`);
   }
 
-  function eliminar(proveedor: Proveedor) {
-    if (!window.confirm(`¿Eliminar a ${proveedor.razon_social}? Si tiene movimientos de caja vinculados no se puede eliminar.`)) return;
-    void ejecutar(() => getSupabase().from("proveedores").delete().eq("id", proveedor.id), "Proveedor eliminado.", true);
+  function cambiarActivo(proveedor: Proveedor) {
+    const activo = !proveedor.activo;
+    if (!activo && !window.confirm(`¿Desactivar a ${proveedor.razon_social}? No se borra: queda guardado con sus movimientos y lo podés reactivar.`)) return;
+    void ejecutar(() => getSupabase().from("proveedores").update({ activo }).eq("id", proveedor.id),
+      activo ? "Proveedor reactivado." : "Proveedor desactivado.");
   }
 
   if (!proveedores) return errorCarga ? <p className="error" role="alert">{errorCarga}</p> : <p className="estado">Cargando proveedores…</p>;
@@ -97,15 +100,17 @@ export default function Proveedores() {
               <thead><tr><th>Razón social</th><th>Rubro</th><th>CUIT</th><th>Contacto</th><th>Acciones</th></tr></thead>
               <tbody>
                 {visibles.map((p) => (
-                  <tr key={p.id}>
-                    <td>{p.razon_social}</td>
+                  <tr key={p.id} className={p.activo ? undefined : "fila-anulada"}>
+                    <td>{p.razon_social}{!p.activo && <> <span className="chip sin-datos">Inactivo</span></>}</td>
                     <td>{p.tipo || "—"}</td>
                     <td>{p.cuit || "—"}</td>
                     <td>{p.contacto || "—"}</td>
                     <td>
                       <div className="row">
                         <button type="button" className="secondary" disabled={ocupado} onClick={() => { setAviso(""); editar(p); }}>Editar</button>
-                        <button type="button" className="secondary peligro" disabled={ocupado} onClick={() => eliminar(p)}>Eliminar</button>
+                        <button type="button" className={p.activo ? "secondary peligro" : "secondary"} disabled={ocupado} onClick={() => cambiarActivo(p)}>
+                          {p.activo ? "Desactivar" : "Reactivar"}
+                        </button>
                       </div>
                     </td>
                   </tr>

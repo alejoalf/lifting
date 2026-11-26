@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { BotonEliminar } from "../../components/ui/BotonEliminar";
+import { AvisoAnulado, BotonAnular, ChipAnulado } from "../../components/ui/BotonAnular";
 import { contiene, formatFecha, formatFechaHora } from "../../lib/registros";
-import { eliminarChecklist, useChecklists, type Checklist, type ItemChecklist } from "../../lib/operaciones";
+import { anularChecklist, useChecklists, type Checklist, type ItemChecklist } from "../../lib/operaciones";
 import { PLANTILLAS, TEXTO_ESTADO, type DocChecklist, type EstadoItem } from "../../lib/checklistVehicular";
 
 /** Estado de un documento el día del checklist (vence ese día = vigente). */
@@ -18,6 +18,7 @@ function estadoDocAlDia(d: DocChecklist, fecha: string) {
 const filtrosVacios = { conductor: "", vehiculo: "", desde: "", hasta: "", resultado: "", flota: "" };
 
 function ChipResultado({ checklist }: { checklist: Checklist }) {
+  if (checklist.anulacion) return <ChipAnulado anulacion={checklist.anulacion} />;
   return checklist.apto
     ? <span className="chip vigente">Apto</span>
     : <span className="chip vencido">No apto</span>;
@@ -75,7 +76,7 @@ export default function HistoricoChecklist() {
             <thead><tr><th>ID</th><th>Vehículo</th><th>Flota</th><th>Conductor</th><th>Fecha de carga</th><th>Resultado</th><th>Detalle</th></tr></thead>
             <tbody>
               {filas.map((c) => (
-                <tr key={c.id}>
+                <tr key={c.id} className={c.anulacion ? "fila-anulada" : undefined}>
                   <td>{c.id}</td>
                   <td>{c.vehiculo}</td>
                   <td>{c.tipoFlota ?? "—"}</td>
@@ -115,9 +116,8 @@ const TEXTO_NEUMATICO: Record<string, string> = { bueno: "Bueno", regular: "Regu
 /** Constancia de un checklist cargado. Se puede imprimir o guardar como PDF. */
 export function DetalleChecklist() {
   const { checklistId = "" } = useParams();
-  const navigate = useNavigate();
   const { operador } = useAuth();
-  const { filas: checklists, error } = useChecklists();
+  const { filas: checklists, error, refresh } = useChecklists();
 
   if (!checklists) return error ? <p className="error" role="alert">{error}</p> : <p className="estado">Cargando checklist…</p>;
   const checklist = checklists.find((c) => String(c.id) === checklistId);
@@ -130,7 +130,8 @@ export function DetalleChecklist() {
   const nroLegajo = checklist.conductorDatos?.nroLegajo || String(checklist.precargaConductorVieja?.legajo ?? "");
   const documentos = checklist.documentos;
   const enc = checklist.encabezado;
-  const puedeBorrar = operador?.rol === "supervisor" || operador?.rol === "admin" || checklist.creadoPor === operador?.operadorId;
+  const puedeAnular = !checklist.anulacion &&
+    (operador?.rol === "supervisor" || operador?.rol === "admin" || checklist.creadoPor === operador?.operadorId);
 
   // Agrupa los controles por paso (los checklists viejos no tienen paso).
   const pasos = new Map<string, ItemChecklist[]>();
@@ -144,15 +145,19 @@ export function DetalleChecklist() {
       <p className="parte-resumen no-print">
         <Link to="/checklist">← Checklists</Link>
         <button type="button" className="secondary" onClick={() => window.print()}>Imprimir / guardar PDF</button>
-        {puedeBorrar && (
-          <BotonEliminar
+        {puedeAnular && (
+          <BotonAnular
             tipo="el checklist"
             nombre={`#${checklist.id} · ${checklist.vehiculo} · ${formatFecha(checklist.fechaCarga)}`}
-            consecuencias={["Si este checklist habilitó un gerenciamiento, primero hay que borrar el gerenciamiento."]}
-            onEliminar={async () => { await eliminarChecklist(checklist.id); navigate("/checklist"); }}
+            consecuencias={[
+              "Si este checklist habilitó un gerenciamiento, primero hay que anular el gerenciamiento.",
+              "Deja de valer para autorizar viajes: hará falta un checklist nuevo.",
+            ]}
+            onAnular={async (motivo) => { await anularChecklist(checklist.id, motivo); await refresh(); }}
           />
         )}
       </p>
+      <AvisoAnulado anulacion={checklist.anulacion} />
 
       <section className="panel panel-angosto">
         <h2 className="panel-header panel-header-fila">

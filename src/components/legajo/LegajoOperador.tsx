@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { formatFecha } from "../../lib/registros";
 import { getSupabase } from "../../lib/supabase";
 import { guardarDatosConductor } from "../../lib/checklistVehicular";
+import { BotonAnular } from "../ui/BotonAnular";
 import {
-  ESTADOS_REQUISITO, FORMATOS_ARCHIVO, abrirArchivo, editarDocumento, eliminarDocumento,
+  ESTADOS_REQUISITO, FORMATOS_ARCHIVO, abrirArchivo, anularDocumento, editarDocumento,
   guardarDocumento, habilitacionesDe, leerDocumentoConIA, nombreActividad, subirArchivo, useLecturaIADisponible, useLegajos,
   type Bucket, type DatosLegajos, type DocumentoLegajo, type EstadoRequisito, type LecturaIA,
 } from "../../lib/legajos";
@@ -22,6 +23,7 @@ const REVISION: Record<DocumentoLegajo["estado"], { clase: string; texto: string
   pendiente: { clase: "en-revision", texto: "En revisión" },
   aprobado: { clase: "vigente", texto: "Aprobado" },
   rechazado: { clase: "vencido", texto: "Rechazado" },
+  anulado: { clase: "anulado", texto: "Anulado" },
 };
 
 export function BotonVerArchivo({ path, bucket }: { path: string; bucket?: Bucket }) {
@@ -73,12 +75,12 @@ function Habilitaciones({ datos, operadorId }: { datos: DatosLegajos; operadorId
   );
 }
 
-function Documentos({ datos, gestor, ocupado, onEditar, onEliminar }: {
+function Documentos({ datos, gestor, ocupado, onEditar, onAnular }: {
   datos: DatosLegajos;
   gestor: boolean;
   ocupado: boolean;
   onEditar: (documento: DocumentoLegajo) => void;
-  onEliminar: (documento: DocumentoLegajo) => void;
+  onAnular: (documento: DocumentoLegajo, motivo: string) => Promise<void>;
 }) {
   if (datos.documentos.length === 0) return <p className="vacio">Todavía no hay documentos cargados.</p>;
   const tipo = (id: string) => datos.tipos.find((t) => t.id === id)?.nombre ?? "—";
@@ -89,24 +91,29 @@ function Documentos({ datos, gestor, ocupado, onEditar, onEliminar }: {
         <thead><tr><th>Documento</th><th>Emisión</th><th>Vencimiento</th><th>Revisión</th><th>Cargado</th><th>Archivo</th><th>Acciones</th></tr></thead>
         <tbody>
           {datos.documentos.map((d) => (
-            <tr key={d.id}>
+            <tr key={d.id} className={d.estado === "anulado" ? "fila-anulada" : undefined}>
               <td>{tipo(d.tipo_documento_id)}{d.clase && <small> · Clase {d.clase}</small>}</td>
               <td>{d.fecha_emision ? formatFecha(d.fecha_emision) : "—"}</td>
               <td>{d.vencimiento ? formatFecha(d.vencimiento) : "No vence"}</td>
               <td>
                 <span className={`chip ${REVISION[d.estado].clase}`}>{REVISION[d.estado].texto}</span>
                 {d.motivo_rechazo && <><br /><small className="texto-alto">{d.motivo_rechazo}</small></>}
+                {d.motivo_anulacion && <><br /><small>Motivo: {d.motivo_anulacion}</small></>}
               </td>
               <td>{new Date(d.created_at).toLocaleDateString("es-AR")}</td>
               <td><BotonVerArchivo path={d.archivo_path} /></td>
               <td>
-                <div className="row">
-                  <button type="button" className="secondary" disabled={ocupado} onClick={() => onEditar(d)}>Editar</button>
-                  {/* El operador no puede eliminar un documento ya aprobado. */}
-                  {(gestor || d.estado !== "aprobado") && (
-                    <button type="button" className="secondary peligro" disabled={ocupado} onClick={() => onEliminar(d)}>Eliminar</button>
-                  )}
-                </div>
+                {d.estado !== "anulado" && (
+                  <div className="row">
+                    <button type="button" className="secondary" disabled={ocupado} onClick={() => onEditar(d)}>Editar</button>
+                    {/* El operador no puede anular un documento ya aprobado. */}
+                    {(gestor || d.estado !== "aprobado") && (
+                      <BotonAnular tipo="el documento" nombre={tipo(d.tipo_documento_id)}
+                        consecuencias={["Deja de contar para las habilitaciones. El archivo se conserva."]}
+                        onAnular={(motivo) => onAnular(d, motivo)} />
+                    )}
+                  </div>
+                )}
               </td>
             </tr>
           ))}
@@ -356,7 +363,6 @@ function DatosPersonales({ operadorId }: { operadorId: string }) {
 export function LegajoOperador({ operadorId, gestor }: { operadorId: string; gestor: boolean }) {
   const { datos, error, refresh } = useLegajos(operadorId);
   const [editando, setEditando] = useState<DocumentoLegajo | null>(null);
-  const [eliminando, setEliminando] = useState(false);
   const [aviso, setAviso] = useState("");
   const [fallo, setFallo] = useState("");
   const formulario = useRef<HTMLElement>(null);
@@ -364,21 +370,14 @@ export function LegajoOperador({ operadorId, gestor }: { operadorId: string; ges
 
   const tipo = (id: string) => datos.tipos.find((t) => t.id === id)?.nombre ?? "documento";
 
-  async function eliminar(documento: DocumentoLegajo) {
-    if (!window.confirm(`¿Eliminar "${tipo(documento.tipo_documento_id)}" del legajo? El archivo también se borra y no se puede recuperar.`)) return;
+  /** El error lo muestra el cuadro de anulación. */
+  async function anular(documento: DocumentoLegajo, motivo: string) {
     setAviso("");
     setFallo("");
-    setEliminando(true);
-    try {
-      await eliminarDocumento(documento);
-      if (editando?.id === documento.id) setEditando(null);
-      await refresh();
-      setAviso("Documento eliminado.");
-    } catch (e) {
-      setFallo(e instanceof Error ? e.message : "No se pudo eliminar el documento.");
-    } finally {
-      setEliminando(false);
-    }
+    await anularDocumento(documento, motivo);
+    if (editando?.id === documento.id) setEditando(null);
+    await refresh();
+    setAviso("Documento anulado.");
   }
 
   return (
@@ -406,8 +405,8 @@ export function LegajoOperador({ operadorId, gestor }: { operadorId: string; ges
           <Documentos
             datos={datos}
             gestor={gestor}
-            ocupado={eliminando}
-            onEliminar={(documento) => void eliminar(documento)}
+            ocupado={false}
+            onAnular={anular}
             onEditar={(documento) => {
               setAviso("");
               setFallo("");

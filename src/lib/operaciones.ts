@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getSupabase } from "./supabase";
+import { aAnulacion, type Anulacion } from "../components/ui/BotonAnular";
 import { aDocChecklist, type DocChecklist, type EstadoItem, type PrecargaVehiculo, type TipoFlota } from "./checklistVehicular";
 
 // Gerenciamientos de viaje, checklists vehiculares y tarjetas de observación (Supabase).
@@ -28,7 +29,8 @@ export interface Gerenciamiento {
   rutas: string;
   autorizacion: "pendiente" | "autorizado";
   responsable: string;
-  estado: "abierto" | "cerrado";
+  estado: "abierto" | "cerrado" | "anulado";
+  anulacion: Anulacion | null;
   /** Vehículo de la flota, cliente y contrato a los que se factura el viaje. */
   vehiculoId: string | null;
   clienteId: string | null;
@@ -116,6 +118,7 @@ export interface Checklist {
   observacionesPasos: Record<string, string>;
   /** Checklists anteriores a la unificación de documentos. */
   precargaConductorVieja: Record<string, unknown> | null;
+  anulacion: Anulacion | null;
 }
 
 export interface Observacion {
@@ -135,7 +138,8 @@ export interface Observacion {
   accion: string;
   riesgo: "Bajo" | "Medio" | "Alto";
   seguimiento: boolean;
-  estado: "abierta" | "cerrada";
+  estado: "abierta" | "cerrada" | "anulada";
+  anulacion: Anulacion | null;
 }
 
 export const TIPOS_OBSERVACION = ["Acto Inseguro", "Condición Insegura", "Práctica Segura", "Detención de Tareas"];
@@ -188,7 +192,8 @@ function aGerenciamiento(f: Fila): Gerenciamiento {
     rutas: txt(f.rutas),
     autorizacion: f.autorizacion === "autorizado" ? "autorizado" : "pendiente",
     responsable: txt(f.responsable),
-    estado: f.estado === "cerrado" ? "cerrado" : "abierto",
+    estado: f.estado === "cerrado" || f.estado === "anulado" ? f.estado : "abierto",
+    anulacion: aAnulacion(f),
     vehiculoId: idOpcional(f.vehiculo_id),
     clienteId: idOpcional(f.cliente_id),
     contratoId: idOpcional(f.contrato_id),
@@ -225,6 +230,7 @@ function aChecklist(f: Fila): Checklist {
     documentos: Array.isArray(datos.documentos) ? (datos.documentos as Fila[]).map(aDocChecklist) : [],
     observacionesPasos: (objeto(datos.observaciones_pasos) ?? {}) as Record<string, string>,
     precargaConductorVieja: objeto(datos.precarga_conductor),
+    anulacion: aAnulacion(f),
   };
 }
 
@@ -246,7 +252,8 @@ function aObservacion(f: Fila): Observacion {
     accion: txt(f.accion),
     riesgo: (["Bajo", "Medio", "Alto"].includes(txt(f.riesgo)) ? f.riesgo : "Bajo") as Observacion["riesgo"],
     seguimiento: f.seguimiento === true,
-    estado: f.estado === "cerrada" ? "cerrada" : "abierta",
+    estado: f.estado === "cerrada" || f.estado === "anulada" ? f.estado : "abierta",
+    anulacion: aAnulacion(f),
   };
 }
 
@@ -291,7 +298,7 @@ async function rpc(nombre: string, id: number) {
 }
 
 /** La base vincula el checklist y, si no se indica parte, el parte en curso del vehículo. */
-export function crearGerenciamiento(g: Omit<Gerenciamiento, "id" | "creadoPor" | "creadoPorNombre" | "creadoEn" | "autorizacion" | "responsable" | "estado" | "strix" | "checklistId">) {
+export function crearGerenciamiento(g: Omit<Gerenciamiento, "id" | "creadoPor" | "creadoPorNombre" | "creadoEn" | "autorizacion" | "responsable" | "estado" | "strix" | "checklistId" | "anulacion">) {
   return insertar("gerenciamientos", "gerenciamientos", {
     parte_id: g.parteId,
     vehiculo_id: g.vehiculoId,
@@ -352,19 +359,19 @@ export function crearChecklist(c: {
   });
 }
 
-// ---------- Borrar registros cargados por error (la base valida quién puede) ----------
+// ---------- Anular registros cargados por error (no se borran; la base valida quién puede) ----------
 
-async function eliminar(funcion: string, id: number | string) {
-  const { error } = await getSupabase().rpc(funcion, { p_id: id });
+async function anular(funcion: string, id: number | string, motivo: string) {
+  const { error } = await getSupabase().rpc(funcion, { p_id: id, p_motivo: motivo });
   if (error) throw new Error(error.message);
 }
 
-export const eliminarChecklist = (id: number) => eliminar("eliminar_checklist", id);
-export const eliminarGerenciamiento = (id: number) => eliminar("eliminar_gerenciamiento", id);
-export const eliminarObservacion = (id: number) => eliminar("eliminar_observacion", id);
-export const eliminarParteDiario = (id: string) => eliminar("eliminar_parte_diario", id);
+export const anularChecklist = (id: number, motivo: string) => anular("anular_checklist", id, motivo);
+export const anularGerenciamiento = (id: number, motivo: string) => anular("anular_gerenciamiento", id, motivo);
+export const anularObservacion = (id: number, motivo: string) => anular("anular_observacion", id, motivo);
+export const anularParteDiario = (id: string, motivo: string) => anular("anular_parte_diario", id, motivo);
 
-export function crearObservacion(o: Omit<Observacion, "id" | "creadoPor" | "reportadoPor" | "fechaCarga" | "estado">) {
+export function crearObservacion(o: Omit<Observacion, "id" | "creadoPor" | "reportadoPor" | "fechaCarga" | "estado" | "anulacion">) {
   return insertar("observaciones", "tarjetas de observación", {
     tipos: o.tipos,
     observador: o.observador,

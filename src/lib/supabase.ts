@@ -30,6 +30,17 @@ export function getSupabase() {
   return client;
 }
 
+/** Tablas que se anulan con la función genérica de la base (solo administrador). */
+export type TablaAnulable =
+  | "caja_gastos" | "cliente_historial" | "certificados_empresa" | "documentos_vehiculo"
+  | "certificaciones" | "strix_recorridos" | "strix_importaciones";
+
+/** Anula un registro: no se borra, queda guardado como anulado con el motivo. */
+export async function anularRegistro(tabla: TablaAnulable, id: string | number, motivo: string) {
+  const { error } = await getSupabase().rpc("anular_registro", { p_tabla: tabla, p_id: String(id), p_motivo: motivo });
+  if (error) throw new Error(error.message);
+}
+
 /** Proveedores de ingreso habilitados en Supabase Auth (por ejemplo { email: true, google: true }). */
 export async function proveedoresHabilitados(): Promise<Record<string, boolean>> {
   if (!supabaseUrl || !supabaseAnonKey) return {};

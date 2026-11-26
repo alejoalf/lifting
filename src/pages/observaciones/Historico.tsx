@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { contiene, formatFecha } from "../../lib/registros";
-import { TIPOS_OBSERVACION, cerrarObservacion, eliminarObservacion, useObservaciones } from "../../lib/operaciones";
-import { BotonEliminar } from "../../components/ui/BotonEliminar";
+import { TIPOS_OBSERVACION, anularObservacion, cerrarObservacion, useObservaciones } from "../../lib/operaciones";
+import { BotonAnular } from "../../components/ui/BotonAnular";
 
 const filtrosVacios = {
   id: "", desde: "", hasta: "", tipo: "", riesgo: "", seguimiento: "", estado: "",
@@ -83,7 +83,7 @@ export default function HistoricoObservaciones() {
               <select {...filtro("seguimiento")}><option value="">Todos</option><option value="si">Sí</option><option value="no">No</option></select>
             </label>
             <label>Estado
-              <select {...filtro("estado")}><option value="">Todos</option><option value="abierta">Abierta</option><option value="cerrada">Cerrada</option></select>
+              <select {...filtro("estado")}><option value="">Todos</option><option value="abierta">Abierta</option><option value="cerrada">Cerrada</option><option value="anulada">Anulada</option></select>
             </label>
             <label>Reportado por<input placeholder="Ingresá el nombre" {...filtro("reportadoPor")} /></label>
             <label>Distrito<input {...filtro("distrito")} /></label>
@@ -108,7 +108,7 @@ export default function HistoricoObservaciones() {
                 </thead>
                 <tbody>
                   {filas.map((o) => (
-                    <tr key={o.id}>
+                    <tr key={o.id} className={o.anulacion ? "fila-anulada" : undefined}>
                       <td>{o.id}</td>
                       <td><strong>{o.reportadoPor}</strong></td>
                       <td>{o.tipos.join(", ")}</td>
@@ -119,16 +119,20 @@ export default function HistoricoObservaciones() {
                       <td>{o.lugar}</td>
                       <td className={claseRiesgo[o.riesgo]}>{o.riesgo}</td>
                       <td className={o.seguimiento ? "texto-aviso" : "texto-alto"}>{o.seguimiento ? "Sí" : "No"}</td>
-                      <td className={o.estado === "cerrada" ? "texto-ok" : "texto-aviso"}>{o.estado === "cerrada" ? "Cerrada" : "Abierta"}</td>
+                      <td className={o.estado === "cerrada" ? "texto-ok" : o.estado === "abierta" ? "texto-aviso" : undefined}>
+                        {o.anulacion
+                          ? <><span className="chip anulado">Anulada</span><br /><small>Motivo: {o.anulacion.motivo}</small></>
+                          : o.estado === "cerrada" ? "Cerrada" : "Abierta"}
+                      </td>
                       <td>
                         {puedeCerrar && o.estado === "abierta" && (
                           <button type="button" className="secondary" disabled={ocupado === o.id} onClick={() => void cerrar(o.id)}>Cerrar</button>
                         )}
-                        {(puedeCerrar || (o.creadoPor === operador?.operadorId && o.estado === "abierta")) ? (
-                          <BotonEliminar
+                        {!o.anulacion && (puedeCerrar || (o.creadoPor === operador?.operadorId && o.estado === "abierta")) ? (
+                          <BotonAnular
                             tipo="la tarjeta de observación"
                             nombre={`#${o.id} · ${o.lugar}`}
-                            onEliminar={async () => { await eliminarObservacion(o.id); await refresh(); }}
+                            onAnular={async (motivo) => { await anularObservacion(o.id, motivo); await refresh(); }}
                           />
                         ) : !(puedeCerrar && o.estado === "abierta") && "—"}
                       </td>

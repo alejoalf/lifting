@@ -3,9 +3,9 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { DatosRiesgo, TEXTO_RIESGO, TablaTrabajos, TextoAts, TotalesStrix, hayRiesgo } from "../../components/partes/ResumenParte";
 import { EstadoParteChip } from "../../components/partes/TablaPartes";
-import { BotonEliminar } from "../../components/ui/BotonEliminar";
+import { AvisoAnulado, BotonAnular } from "../../components/ui/BotonAnular";
 import { StatusChip } from "../../components/ui/StatusChip";
-import { eliminarParteDiario } from "../../lib/operaciones";
+import { anularParteDiario } from "../../lib/operaciones";
 import { formatFecha, formatFechaHora, type Parte } from "../../lib/registros";
 import { cerrarParte, controlarParte, firmarParte, resolverExcepcion, usePartes, useResumenParte } from "../../lib/usePartes";
 
@@ -15,10 +15,12 @@ function ResumenDelParte({ parte }: { parte: Parte }) {
   if (error) return <p className="error" role="alert">{error}</p>;
   if (!resumen) return null;
   const estado = resumen.riesgo.estado ? TEXTO_RIESGO[resumen.riesgo.estado] : null;
+  const anulacion = resumen.anulacion && { en: resumen.anulacion.en, porId: "", motivo: resumen.anulacion.motivo };
   const puedeSumarTrabajos = parte.estado === "en_curso";
 
   return (
     <>
+      <AvisoAnulado anulacion={anulacion} quien={resumen.anulacion?.por} />
       {(hayRiesgo(resumen.riesgo) || resumen.ats) && (
         <section className="panel">
           <h2 className="panel-header panel-header-fila">
@@ -264,9 +266,9 @@ export default function DetalleParte() {
 
   const permisos: Permisos = { esDueno: parte.creadoPor === operador.id, esBase: esSupervisor, esAdmin: operador.rol === "admin" };
   // Misma regla que la base: admin siempre; supervisor si no está firmado; el operador antes de salir.
-  const puedeBorrar = permisos.esAdmin
+  const puedeAnular = parte.estado !== "anulado" && (permisos.esAdmin
     || (esSupervisor && !parte.firmadoEn)
-    || (permisos.esDueno && ["pendiente", "excepcion", "frenado"].includes(parte.estado));
+    || (permisos.esDueno && ["pendiente", "excepcion", "frenado"].includes(parte.estado)));
 
   const ejecutar: Ejecutar = async (accion, mensaje) => {
     setAviso("");
@@ -347,12 +349,12 @@ export default function DetalleParte() {
 
       <div className="actions actions-inicio">
         <Link to={volver}>← Volver a partes</Link>
-        {puedeBorrar && (
-          <BotonEliminar
+        {puedeAnular && (
+          <BotonAnular
             tipo="el parte diario"
             nombre={`N° ${parte.numero} · ${parte.vehiculo} · ${formatFecha(parte.fecha)}`}
-            consecuencias={["Los gerenciamientos que agrupaba quedan cargados, pero sin parte."]}
-            onEliminar={async () => { await eliminarParteDiario(parte.id); navigate(volver); }}
+            consecuencias={["Conserva su número y queda visible como anulado.", "Los gerenciamientos que agrupaba siguen cargados."]}
+            onAnular={async (motivo) => { await anularParteDiario(parte.id, motivo); await refresh(); }}
           />
         )}
       </div>

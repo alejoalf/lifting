@@ -3,7 +3,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { DialogoEliminar, type PedidoEliminar } from "../components/ui/DialogoEliminar";
 import {
   CATEGORIAS_PELIGRO, DATOS_VIEJOS_MS, ESTADOS, NIVELES, TIPOS_EQUIPO, TIPOS_TRAMO,
-  buscarLugar, descripcionClima, direccionCardinal, eliminarFila, evaluarEquipo, guardarFila, hayTormenta,
+  buscarLugar, descripcionClima, direccionCardinal, evaluarEquipo, guardarFila, hayTormenta,
   medidasObligatorias, nivelRiesgo, peligrosAplicables, useClima, useMatrizRiesgos, useUbicacionActual,
   type CategoriaPeligro, type Clima, type CondicionViento, type Equipo, type EstadoOperacion, type Lugar,
   type Matriz, type Medida, type Peligro, type PuntoClima, type TablaRiesgo, type TipoEquipo, type TipoTramo,
@@ -472,7 +472,6 @@ function useEdicion(tabla: TablaRiesgo) {
         pedido={pedido}
         ocupado={guardando}
         onCancelar={() => setPedido(null)}
-        onEliminar={() => pedido && void resolver(() => eliminarFila(tabla, pedido.id), `«${pedido.nombre}» eliminado.`)}
         onDesactivar={() => pedido && void resolver(() => guardarFila(tabla, pedido.id, { activo: false }), `«${pedido.nombre}» desactivado.`)}
       />
     ),
@@ -513,7 +512,7 @@ function Acciones({ esAdmin, onEditar, onEliminar }: { esAdmin: boolean; onEdita
   return (
     <td className="celda-acciones">
       <button type="button" className="secondary" onClick={onEditar}>Editar</button>
-      <button type="button" className="secondary peligro" onClick={onEliminar}>Eliminar</button>
+      <button type="button" className="secondary peligro" onClick={onEliminar}>Desactivar</button>
     </td>
   );
 }

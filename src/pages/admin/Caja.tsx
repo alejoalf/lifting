@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ZonaEliminar } from "../../components/datos/FormFila";
+import { ZonaAnular } from "../../components/datos/FormFila";
+import { ChipAnulado } from "../../components/ui/BotonAnular";
 import { contiene, formatFecha } from "../../lib/registros";
 import {
   CATEGORIAS, CIRCUITOS, TIPOS_MOVIMIENTO, TODAS_LAS_CATEGORIAS,
-  descargarCsv, eliminarMovimiento, formatMonto, guardarMovimiento, hoyISO, mesActual, numeroMovimiento,
+  anularMovimiento, descargarCsv, formatMonto, guardarMovimiento, hoyISO, mesActual, numeroMovimiento,
   porCategoria, totales, useCaja,
   type Circuito, type DatosCaja, type DatosMovimiento, type Movimiento, type Opcion, type TipoMovimiento,
 } from "../../lib/caja";
@@ -177,7 +178,7 @@ export default function Caja() {
                 {visibles.map((m) => {
                   const abierto = abiertos.has(m.id);
                   return (
-                    <tr key={m.id} className={abierto ? "is-open" : undefined}>
+                    <tr key={m.id} className={[abierto && "is-open", m.anulacion && "fila-anulada"].filter(Boolean).join(" ") || undefined}>
                       <td>
                         <span className="solo-escritorio">{m.fecha ? formatFecha(m.fecha) : "—"}</span>
                         <button type="button" className="fila-toggle solo-movil" aria-expanded={abierto} onClick={() => alternar(m.id)}>
@@ -189,7 +190,7 @@ export default function Caja() {
                           <span className="fila-toggle-flecha" aria-hidden="true">▾</span>
                         </button>
                       </td>
-                      <td><span className={`chip ${m.tipo === "Egreso" ? "vencido" : m.tipo === "Ingreso" ? "vigente" : "sin-datos"}`}>{m.tipo ?? "Sin tipo"}</span></td>
+                      <td><span className={`chip ${m.tipo === "Egreso" ? "vencido" : m.tipo === "Ingreso" ? "vigente" : "sin-datos"}`}>{m.tipo ?? "Sin tipo"}</span> <ChipAnulado anulacion={m.anulacion} /></td>
                       <td>{m.categoria ?? "—"}</td>
                       <td>{m.concepto ?? "—"}</td>
                       <td><Vinculos movimiento={m} datos={datos} /></td>
@@ -367,7 +368,10 @@ function FormMovimiento({ datos, movimiento, onGuardado }: {
     <label>{titulo}
       <select value={valores[campo]} onChange={(e) => cambiar(campo, e.target.value)}>
         <option value="">Ninguno</option>
-        {opciones.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}
+        {/* Los inactivos solo aparecen si este movimiento ya los tenía elegidos. */}
+        {opciones.filter((o) => o.activo !== false || o.id === valores[campo]).map((o) => (
+          <option key={o.id} value={o.id}>{o.nombre}{o.activo === false ? " (inactivo)" : ""}</option>
+        ))}
       </select>
     </label>
   );
@@ -464,13 +468,15 @@ export function FichaMovimiento() {
 
       {movimiento && (
         <div className="panel-angosto">
-          <ZonaEliminar
-            titulo="Eliminar movimiento"
-            ayuda="Borra el movimiento de la caja. No se puede deshacer."
-            confirmacion={`¿Eliminar el movimiento ${numeroMovimiento(movimiento.id)} por ${formatMonto(movimiento.monto)}?`}
-            eliminar={async () => {
-              await eliminarMovimiento(movimiento.id);
-              navigate("/admin/caja");
+          <ZonaAnular
+            titulo="Anular movimiento"
+            ayuda="El movimiento queda en el libro marcado como anulado y deja de sumar en los totales."
+            tipo="el movimiento"
+            nombre={`${numeroMovimiento(movimiento.id)} · ${formatMonto(movimiento.monto)}`}
+            anulacion={movimiento.anulacion}
+            anular={async (motivo) => {
+              await anularMovimiento(movimiento.id, motivo);
+              await refresh();
             }}
           />
         </div>

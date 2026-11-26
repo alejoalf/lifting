@@ -50,8 +50,9 @@ export interface DocumentoLegajo {
   clase: string | null;
   archivo_path: string;
   archivo_nombre: string;
-  estado: "pendiente" | "aprobado" | "rechazado";
+  estado: "pendiente" | "aprobado" | "rechazado" | "anulado";
   motivo_rechazo: string | null;
+  motivo_anulacion?: string | null;
   lectura_ia: LecturaIA | null;
   created_at: string;
 }
@@ -235,11 +236,6 @@ export async function guardarDocumento(documento: {
   if (error) throw new Error(error.message);
 }
 
-/** Borra un archivo que ya no usa ningún documento. Si falla, solo queda el archivo sin usar. */
-export async function borrarArchivo(path: string, bucket: Bucket = "legajos") {
-  await getSupabase().storage.from(bucket).remove([path]).catch(() => null);
-}
-
 /** Edita un documento. `path` vacío = conserva el archivo actual. */
 export async function editarDocumento(documento: DocumentoLegajo, cambios: {
   tipoId: string;
@@ -258,14 +254,14 @@ export async function editarDocumento(documento: DocumentoLegajo, cambios: {
     p_archivo_nombre: cambios.path ? cambios.archivoNombre : null,
     p_clase: cambios.clase ?? null,
   });
+  // El archivo anterior no se borra: queda en Storage y su ruta en la auditoría.
   if (error) throw new Error(error.message);
-  if (cambios.path) await borrarArchivo(documento.archivo_path);
 }
 
-export async function eliminarDocumento(documento: DocumentoLegajo) {
-  const { error } = await getSupabase().rpc("eliminar_documento_legajo", { p_documento_id: documento.id });
+/** Anula un documento del legajo: queda como historial y deja de contar para las habilitaciones. */
+export async function anularDocumento(documento: DocumentoLegajo, motivo: string) {
+  const { error } = await getSupabase().rpc("anular_documento_legajo", { p_documento_id: documento.id, p_motivo: motivo });
   if (error) throw new Error(error.message);
-  await borrarArchivo(documento.archivo_path);
 }
 
 export async function revisarDocumento(id: string, aprobar: boolean, motivo = "") {

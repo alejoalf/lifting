@@ -1,12 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { FormFila, TablaFilas, ZonaEliminar, textoFila } from "../../components/datos/FormFila";
+import { FormFila, TablaFilas, ZonaAnular, textoFila } from "../../components/datos/FormFila";
+import { BotonAnular, aAnulacion } from "../../components/ui/BotonAnular";
 import { BotonVerArchivo } from "../../components/legajo/LegajoOperador";
 import { StatusChip } from "../../components/ui/StatusChip";
 import { FORMATOS_ARCHIVO } from "../../lib/legajos";
 import { contiene, formatFecha, semaforoDe } from "../../lib/registros";
 import {
-  eliminarCertificado, eliminarFila, estadoCobro, guardarCertificado, guardarFila, nombreCliente,
+  anularCertificacion, anularCertificado, estaAnulada, estadoCobro, guardarCertificado, guardarFila, nombreCliente,
   nombreContrato, referencias, texto, useComercial,
   type Certificado, type DatosComerciales,
 } from "../../lib/comercial";
@@ -167,19 +168,24 @@ function Certificados({ datos, onCambio }: { datos: DatosComerciales; onCambio: 
               <thead><tr><th>Certificado</th><th>Emisor</th><th>Vencimiento</th><th>Aplica a</th><th>Archivo</th><th>Acciones</th></tr></thead>
               <tbody>
                 {datos.certificados.map((c) => (
-                  <tr key={c.id}>
-                    <td>{c.nombre}{c.observaciones && <><br /><small className="ayuda">{c.observaciones}</small></>}</td>
+                  <tr key={c.id} className={estaAnulada(c) ? "fila-anulada" : undefined}>
+                    <td>
+                      {c.nombre}{c.observaciones && <><br /><small className="ayuda">{c.observaciones}</small></>}
+                      {estaAnulada(c) && <><br /><span className="chip anulado">Anulado</span> <small>Motivo: {c.motivo_anulacion}</small></>}
+                    </td>
                     <td>{c.emisor || "—"}</td>
                     <td>{c.vencimiento ? <>{formatFecha(c.vencimiento)} <StatusChip estado={semaforoDe(c.vencimiento)} /></> : "No vence"}</td>
                     <td>{alcance(c)}</td>
                     <td>{c.archivo_path ? <BotonVerArchivo path={c.archivo_path} bucket="certificados" /> : "Sin archivo"}</td>
                     <td>
-                      <div className="row">
-                        <button type="button" className="secondary" disabled={ocupado} onClick={() => { setAviso(""); cargarEnFormulario(c); }}>Editar</button>
-                        <button type="button" className="secondary peligro" disabled={ocupado} onClick={() => {
-                          if (window.confirm(`¿Eliminar "${c.nombre}"? El archivo también se borra.`)) void ejecutar(() => eliminarCertificado(c), "Certificado eliminado.");
-                        }}>Eliminar</button>
-                      </div>
+                      {!estaAnulada(c) && (
+                        <div className="row">
+                          <button type="button" className="secondary" disabled={ocupado} onClick={() => { setAviso(""); cargarEnFormulario(c); }}>Editar</button>
+                          <BotonAnular tipo="el certificado" nombre={c.nombre}
+                            consecuencias={["Deja de figurar como exigido a los clientes y contratos. El archivo se conserva."]}
+                            onAnular={async (motivo) => { await anularCertificado(c, motivo); await onCambio(); setAviso("Certificado anulado."); }} />
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -319,13 +325,15 @@ export function FichaCertificacion() {
       </section>
 
       {certificacion && (
-        <ZonaEliminar
-          titulo="Eliminar certificación"
-          ayuda="Borra esta certificación mensual."
-          confirmacion="¿Eliminar esta certificación? No se puede deshacer."
-          eliminar={async () => {
-            await eliminarFila("certificaciones", certificacion.id);
-            navigate("/admin/certificaciones");
+        <ZonaAnular
+          titulo="Anular certificación"
+          ayuda="La certificación queda guardada como anulada y deja de contar en la ficha del cliente y del contrato."
+          tipo="la certificación"
+          nombre={texto(certificacion.periodo) || certificacion.id}
+          anulacion={aAnulacion(certificacion)}
+          anular={async (motivo) => {
+            await anularCertificacion(certificacion.id, motivo);
+            await refresh();
           }}
         />
       )}

@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { contiene, formatFecha, hoy } from "../../lib/registros";
-import { autorizarGerenciamiento, cerrarGerenciamiento, eliminarGerenciamiento, useGerenciamientos, type Gerenciamiento } from "../../lib/operaciones";
-import { BotonEliminar } from "../../components/ui/BotonEliminar";
+import { anularGerenciamiento, autorizarGerenciamiento, cerrarGerenciamiento, useGerenciamientos, type Gerenciamiento } from "../../lib/operaciones";
+import { BotonAnular } from "../../components/ui/BotonAnular";
 
 const filtrosVacios = { id: "", conductor: "", destino: "", autorizacion: "", estado: "", desde: "", hasta: "" };
 
@@ -20,7 +20,7 @@ export default function HistoricoGerenciamientos() {
   const gerenciamientos = cargados;
 
   const mesActual = hoy().slice(0, 7);
-  const delMes = gerenciamientos.filter((g) => g.fechaSalida.startsWith(mesActual));
+  const delMes = gerenciamientos.filter((g) => g.fechaSalida.startsWith(mesActual) && !g.anulacion);
   const autorizados = delMes.filter((g) => g.autorizacion === "autorizado").length;
   const porcentaje = delMes.length ? Math.round((autorizados / delMes.length) * 100) : null;
 
@@ -92,7 +92,7 @@ export default function HistoricoGerenciamientos() {
                   </label>
                   <label>Estado
                     <select {...filtro("estado")}>
-                      <option value="">Todos</option><option value="abierto">Abierto</option><option value="cerrado">Cerrado</option>
+                      <option value="">Todos</option><option value="abierto">Abierto</option><option value="cerrado">Cerrado</option><option value="anulado">Anulado</option>
                     </select>
                   </label>
                 </div>
@@ -118,8 +118,9 @@ export default function HistoricoGerenciamientos() {
                   <tbody>
                     {filas.map((g) => {
                       const puedeCerrar = g.estado === "abierto" && g.autorizacion === "autorizado" && (puedeAutorizar || g.creadoPor === operador?.operadorId);
+                      const anulado = Boolean(g.anulacion);
                       return (
-                        <tr key={g.id}>
+                        <tr key={g.id} className={anulado ? "fila-anulada" : undefined}>
                           <td>{g.id}</td>
                           <td>{g.vehiculo}</td>
                           <td>{formatFecha(g.fechaSalida)} - {g.horaSalida}</td>
@@ -141,21 +142,26 @@ export default function HistoricoGerenciamientos() {
                               ? <><br /><small><Link to={`/checklist/${g.checklistId}`}>Checklist #{g.checklistId}</Link></small></>
                               : g.autorizacion === "pendiente" && <><br /><small className="texto-alto">Falta checklist (24 h antes de salir)</small></>}
                           </td>
-                          <td className={g.estado === "cerrado" ? "texto-alto" : "texto-ok"}>{g.estado === "cerrado" ? "Cerrado" : "Abierto"}</td>
+                          <td className={anulado ? undefined : g.estado === "cerrado" ? "texto-alto" : "texto-ok"}>
+                            {anulado
+                              ? <><span className="chip anulado">Anulado</span><br /><small>Motivo: {g.anulacion?.motivo}</small></>
+                              : g.estado === "cerrado" ? "Cerrado" : "Abierto"}
+                          </td>
                           <td>
-                            {puedeAutorizar && g.autorizacion === "pendiente" && (
+                            <Link className="secondary enlace-boton" to={`/gerenciamientos/${g.id}`}>Ver</Link>
+                            {!anulado && puedeAutorizar && g.autorizacion === "pendiente" && (
                               <button type="button" className="secondary" disabled={ocupado === g.id} onClick={() => void ejecutar(g, autorizarGerenciamiento)}>Autorizar</button>
                             )}
                             {puedeCerrar && (
                               <button type="button" className="secondary" disabled={ocupado === g.id} onClick={() => void ejecutar(g, cerrarGerenciamiento)}>Cerrar</button>
                             )}
                             {g.parteId && <Link className="secondary enlace-boton" to={`/partes/${g.parteId}`}>Ver parte</Link>}
-                            {(puedeAutorizar || (g.creadoPor === operador?.operadorId && g.autorizacion === "pendiente")) && (
-                              <BotonEliminar
+                            {!anulado && (puedeAutorizar || (g.creadoPor === operador?.operadorId && g.autorizacion === "pendiente")) && (
+                              <BotonAnular
                                 tipo="el gerenciamiento"
                                 nombre={`#${g.id} · ${g.vehiculo} · ${g.origen} → ${g.destino}`}
-                                consecuencias={["Si pertenecía a un parte diario, el parte deja de incluirlo.", "Los datos de Strix del vehículo se vuelven a repartir entre los otros viajes."]}
-                                onEliminar={async () => { await eliminarGerenciamiento(g.id); await refresh(); }}
+                                consecuencias={["Deja de contar en el parte diario, en la liquidación y en Strix.", "Los datos de Strix del vehículo se vuelven a repartir entre los otros viajes."]}
+                                onAnular={async (motivo) => { await anularGerenciamiento(g.id, motivo); await refresh(); }}
                               />
                             )}
                           </td>
